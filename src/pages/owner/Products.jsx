@@ -27,10 +27,6 @@ import {
     MenuItem,
     Chip,
     CircularProgress,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     TextField,
     Button,
     Select,
@@ -49,6 +45,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { toast } from 'react-toastify';
 import { productService, categoryService, supplierService } from '../../api';
+import Modal from '../../components/ui/Modal';
+import { formatLKR } from '../../utils/formatters';
 
 // Validation Schemas
 const productSchema = z.object({
@@ -135,9 +133,9 @@ const Products = () => {
     // Mutations
     const createProductMutation = useMutation({
         mutationFn: (data) => productService.createProduct(data),
-        onSuccess: () => {
+        onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
-            toast.success('Product created successfully');
+            toast.success(data?.message || 'Product created successfully');
             handleCloseProductModal();
         },
         onError: (err) => toast.error(err.response?.data?.message || 'Failed to create product')
@@ -145,9 +143,9 @@ const Products = () => {
 
     const updateProductMutation = useMutation({
         mutationFn: ({ id, data }) => productService.updateProduct(id, data),
-        onSuccess: () => {
+        onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['products', viewMode] });
-            toast.success('Product updated successfully');
+            toast.success(data?.message || 'Product updated successfully');
             handleCloseProductModal();
         },
         onError: (err) => toast.error(err.response?.data?.message || 'Failed to update product')
@@ -155,10 +153,10 @@ const Products = () => {
 
     const deleteProductMutation = useMutation({
         mutationFn: (id) => productService.deleteProduct(id),
-        onSuccess: () => {
+        onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
             queryClient.invalidateQueries({ queryKey: ['products', 'archived'] });
-            toast.success('Product deleted');
+            toast.success(data?.message || 'Product deleted');
             setIsDeleteModalOpen(false);
             setAnchorEl(null);
             setSelectedProduct(null);
@@ -168,10 +166,10 @@ const Products = () => {
 
     const restoreProductMutation = useMutation({
         mutationFn: (id) => productService.restoreProduct(id),
-        onSuccess: () => {
+        onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
             queryClient.invalidateQueries({ queryKey: ['products', 'archived'] });
-            toast.success('Product restored');
+            toast.success(data?.message || 'Product restored');
             setAnchorEl(null);
             setSelectedProduct(null);
         },
@@ -182,9 +180,9 @@ const Products = () => {
         mutationFn: (data) => categoryService.createCategory(data),
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['categories'] }).then(() => {
-                setValue('categoryId', data.id.toString());
+                setValue('categoryId', data?.id?.toString());
             });
-            toast.success('Category created');
+            toast.success(data?.message || 'Category created');
             setIsCategoryModalOpen(false);
             resetCat();
         },
@@ -407,7 +405,7 @@ const Products = () => {
                                                 className={`${viewMode === 'archived' ? 'bg-slate-50 text-slate-300' : 'bg-slate-100 text-slate-600'} font-bold text-[10px] uppercase tracking-wider h-7`}
                                             />
                                         </TableCell>
-                                        <TableCell className={`border-none px-8 py-6 font-bold ${viewMode === 'archived' ? 'text-slate-400' : 'text-slate-700'}`}>${parseFloat(p.price).toFixed(2)}</TableCell>
+                                        <TableCell className={`border-none px-8 py-6 font-bold ${viewMode === 'archived' ? 'text-slate-400' : 'text-slate-700'}`}>{formatLKR(p.price)}</TableCell>
                                         <TableCell className="border-none px-8 py-6 text-center">
                                             <div className="flex flex-col items-center gap-1">
                                                 <span className={`font-bold ${viewMode === 'archived' ? 'text-slate-300' : (isLowStock ? 'text-rose-600' : 'text-emerald-600')}`}>
@@ -458,173 +456,197 @@ const Products = () => {
                 )}
             </Menu>
 
-            <Dialog
-                open={isProductModalOpen}
+            {/* Product Add/Edit Modal */}
+            <Modal
+                isOpen={isProductModalOpen}
                 onClose={handleCloseProductModal}
-                PaperProps={{ sx: { borderRadius: '28px', padding: '12px', maxWidth: '550px', width: '100%' } }}
+                title={isEditMode ? 'Edit Product' : 'Add New Product'}
+                footer={
+                    <div className="flex gap-4">
+                        <button
+                            onClick={handleCloseProductModal}
+                            className="flex-1 bg-slate-100 text-slate-500 font-bold py-4 rounded-2xl hover:bg-slate-200 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleSubmit(onSubmitProduct)}
+                            disabled={createProductMutation.isPending || updateProductMutation.isPending}
+                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-100 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            {(createProductMutation.isPending || updateProductMutation.isPending) ? (
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+                            ) : 'Save Changes'}
+                        </button>
+                    </div>
+                }
             >
-                <DialogTitle className="font-bold text-2xl text-slate-800 flex justify-between items-center">
-                    {isEditMode ? 'Edit Product' : 'Add New Product'}
-                    <IconButton onClick={handleCloseProductModal} size="small"><X size={20} /></IconButton>
-                </DialogTitle>
-                <form onSubmit={handleSubmit(onSubmitProduct)}>
-                    <DialogContent className="space-y-5">
-                        {isEditMode && (
-                            <Box className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-2">
-                                <Typography className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Product SKU</Typography>
-                                <Typography className="font-mono text-indigo-600 font-bold">{selectedProduct?.sku}</Typography>
-                            </Box>
-                        )}
-                        <TextField
-                            fullWidth
-                            label="Product Name"
-                            {...register('name')}
-                            error={!!errors.name}
-                            helperText={errors.name?.message}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '16px' } }}
-                        />
-                        <Box className="flex gap-2 items-start">
-                            <FormControl fullWidth error={!!errors.categoryId}>
-                                <InputLabel>Category</InputLabel>
-                                <Controller
-                                    name="categoryId"
-                                    control={control}
-                                    render={({ field }) => (
-                                        <Select
-                                            {...field}
-                                            value={field.value || ''}
-                                            label="Category"
-                                            sx={{ borderRadius: '16px' }}
-                                        >
-                                            <MenuItem value="" disabled><em>Select Category</em></MenuItem>
-                                            {categories?.map((cat) => (
-                                                <MenuItem key={cat.id} value={cat.id.toString()}>{cat.name}</MenuItem>
-                                            ))}
-                                        </Select>
-                                    )}
-                                />
-                                {errors.categoryId && <FormHelperText>{errors.categoryId.message}</FormHelperText>}
-                            </FormControl>
-                            <Button
-                                onClick={() => setIsCategoryModalOpen(true)}
-                                className="h-14 min-w-[56px] bg-slate-100 text-indigo-600 hover:bg-indigo-50"
-                                sx={{ borderRadius: '16px' }}
-                            >
-                                <PlusCircle size={24} />
-                            </Button>
-                        </Box>
-                        <div className="grid grid-cols-2 gap-4">
-                            <TextField
-                                fullWidth
-                                label="Price"
-                                type="number"
-                                {...register('price')}
-                                error={!!errors.price}
-                                helperText={errors.price?.message}
-                                InputProps={{
-                                    startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                                    step: "0.01"
-                                }}
-                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '16px' } }}
-                            />
-                            <TextField
-                                fullWidth
-                                label="Low Stock Limit"
-                                type="number"
-                                {...register('lowStockLimit')}
-                                error={!!errors.lowStockLimit}
-                                helperText={errors.lowStockLimit?.message}
-                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '16px' } }}
-                            />
+                <div className="space-y-5 py-4">
+                    {isEditMode && (
+                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Product SKU</p>
+                            <p className="font-mono text-indigo-600 font-bold">{selectedProduct?.sku}</p>
                         </div>
-                        <FormControl fullWidth error={!!errors.supplierId}>
-                            <InputLabel>Supplier (Optional)</InputLabel>
+                    )}
+                    <TextField
+                        fullWidth
+                        label="Product Name"
+                        {...register('name')}
+                        error={!!errors.name}
+                        helperText={errors.name?.message}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '16px' } }}
+                    />
+                    <div className="flex gap-2 items-start">
+                        <FormControl fullWidth error={!!errors.categoryId}>
+                            <InputLabel>Category</InputLabel>
                             <Controller
-                                name="supplierId"
+                                name="categoryId"
                                 control={control}
                                 render={({ field }) => (
                                     <Select
                                         {...field}
                                         value={field.value || ''}
-                                        label="Supplier (Optional)"
+                                        label="Category"
                                         sx={{ borderRadius: '16px' }}
                                     >
-                                        <MenuItem value=""><em>None</em></MenuItem>
-                                        {suppliers?.map((sup) => (
-                                            <MenuItem key={sup.id} value={sup.id.toString()}>{sup.name}</MenuItem>
+                                        <MenuItem value="" disabled><em>Select Category</em></MenuItem>
+                                        {categories?.map((cat) => (
+                                            <MenuItem key={cat.id} value={cat.id.toString()}>{cat.name}</MenuItem>
                                         ))}
                                     </Select>
                                 )}
                             />
-                            {errors.supplierId && <FormHelperText>{errors.supplierId.message}</FormHelperText>}
+                            {errors.categoryId && <FormHelperText>{errors.categoryId.message}</FormHelperText>}
                         </FormControl>
-                    </DialogContent>
-                    <DialogActions className="p-6 pt-2">
-                        <Button onClick={handleCloseProductModal} fullWidth className="text-slate-500 font-bold py-3 rounded-2xl">Cancel</Button>
-                        <Button
-                            type="submit"
-                            variant="contained"
-                            fullWidth
-                            disabled={createProductMutation.isPending || updateProductMutation.isPending}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-2xl shadow-lg shadow-indigo-100"
+                        <button
+                            type="button"
+                            onClick={() => setIsCategoryModalOpen(true)}
+                            className="h-14 min-w-[56px] flex items-center justify-center bg-slate-100 text-indigo-600 hover:bg-indigo-50 rounded-2xl transition-colors"
                         >
-                            {(createProductMutation.isPending || updateProductMutation.isPending) ? <CircularProgress size={24} color="inherit" /> : 'Save Changes'}
-                        </Button>
-                    </DialogActions>
-                </form>
-            </Dialog>
-
-            <Dialog
-                open={isCategoryModalOpen}
-                onClose={() => setIsCategoryModalOpen(false)}
-                PaperProps={{ sx: { borderRadius: '24px', padding: '12px', maxWidth: '400px', width: '100%' } }}
-            >
-                <DialogTitle className="font-bold text-xl">Create New Category</DialogTitle>
-                <form onSubmit={handleSubmitCat(onSubmitCategory)}>
-                    <DialogContent>
+                            <PlusCircle size={24} />
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
                         <TextField
                             fullWidth
-                            label="Category Name"
-                            autoFocus
-                            {...registerCat('name')}
-                            error={!!catErrors.name}
-                            helperText={catErrors.name?.message}
+                            label="Price"
+                            type="number"
+                            {...register('price')}
+                            error={!!errors.price}
+                            helperText={errors.price?.message}
+                            InputProps={{
+                                startAdornment: <InputAdornment position="start">Rs.</InputAdornment>,
+                                step: "0.01"
+                            }}
                             sx={{ '& .MuiOutlinedInput-root': { borderRadius: '16px' } }}
                         />
-                    </DialogContent>
-                    <DialogActions className="p-6">
-                        <Button onClick={() => setIsCategoryModalOpen(false)} className="text-slate-500 font-bold">Cancel</Button>
-                        <Button type="submit" variant="contained" disabled={createCategoryMutation.isPending} className="bg-indigo-600 text-white font-bold rounded-xl px-6">
-                            {createCategoryMutation.isPending ? <CircularProgress size={20} color="inherit" /> : 'Create'}
-                        </Button>
-                    </DialogActions>
-                </form>
-            </Dialog>
+                        <TextField
+                            fullWidth
+                            label="Low Stock Limit"
+                            type="number"
+                            {...register('lowStockLimit')}
+                            error={!!errors.lowStockLimit}
+                            helperText={errors.lowStockLimit?.message}
+                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '16px' } }}
+                        />
+                    </div>
+                    <FormControl fullWidth error={!!errors.supplierId}>
+                        <InputLabel>Supplier (Optional)</InputLabel>
+                        <Controller
+                            name="supplierId"
+                            control={control}
+                            render={({ field }) => (
+                                <Select
+                                    {...field}
+                                    value={field.value || ''}
+                                    label="Supplier (Optional)"
+                                    sx={{ borderRadius: '16px' }}
+                                >
+                                    <MenuItem value=""><em>None</em></MenuItem>
+                                    {suppliers?.map((sup) => (
+                                        <MenuItem key={sup.id} value={sup.id.toString()}>{sup.name}</MenuItem>
+                                    ))}
+                                </Select>
+                            )}
+                        />
+                        {errors.supplierId && <FormHelperText>{errors.supplierId.message}</FormHelperText>}
+                    </FormControl>
+                </div>
+            </Modal>
 
-            <Dialog
-                open={isDeleteModalOpen}
-                onClose={() => setIsDeleteModalOpen(false)}
-                PaperProps={{ sx: { borderRadius: '24px', padding: '16px', maxWidth: '400px' } }}
+            {/* Category Modal */}
+            <Modal
+                isOpen={isCategoryModalOpen}
+                onClose={() => setIsCategoryModalOpen(false)}
+                title="Create New Category"
+                footer={
+                    <div className="flex gap-4">
+                        <button
+                            onClick={() => setIsCategoryModalOpen(false)}
+                            className="flex-1 bg-slate-100 text-slate-500 font-bold py-4 rounded-2xl hover:bg-slate-200 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleSubmitCat(onSubmitCategory)}
+                            disabled={createCategoryMutation.isPending}
+                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-100 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            {createCategoryMutation.isPending ? (
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+                            ) : 'Create'}
+                        </button>
+                    </div>
+                }
             >
-                <DialogTitle className="font-bold text-center text-slate-800">Delete Product?</DialogTitle>
-                <DialogContent>
-                    <Typography className="text-slate-500 text-center">
-                        Delete this product? You can restore it from <span className="font-bold text-slate-700">Archived</span>.
-                    </Typography>
-                </DialogContent>
-                <DialogActions className="p-6 flex-col gap-2">
-                    <Button
-                        onClick={handleDelete}
-                        variant="contained"
+                <div className="py-4">
+                    <TextField
                         fullWidth
-                        disabled={deleteProductMutation.isPending}
-                        className="bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 rounded-2xl"
-                    >
-                        {deleteProductMutation.isPending ? <CircularProgress size={24} color="inherit" /> : 'Yes, Delete Product'}
-                    </Button>
-                    <Button onClick={() => setIsDeleteModalOpen(false)} fullWidth className="text-slate-500 font-bold py-3">Keep Product</Button>
-                </DialogActions>
-            </Dialog>
+                        label="Category Name"
+                        autoFocus
+                        {...registerCat('name')}
+                        error={!!catErrors.name}
+                        helperText={catErrors.name?.message}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '16px' } }}
+                    />
+                </div>
+            </Modal>
+
+            {/* Delete Confirmation Modal */}
+            <Modal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                title="Delete Product?"
+                footer={
+                    <div className="flex flex-col gap-3 w-full">
+                        <button
+                            onClick={handleDelete}
+                            disabled={deleteProductMutation.isPending}
+                            className="bg-rose-600 hover:bg-rose-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-rose-100 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            {deleteProductMutation.isPending ? (
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+                            ) : 'Yes, Delete Product'}
+                        </button>
+                        <button
+                            onClick={() => setIsDeleteModalOpen(false)}
+                            className="text-slate-500 font-bold py-4 rounded-2xl hover:bg-slate-50 transition-colors"
+                        >
+                            Keep Product
+                        </button>
+                    </div>
+                }
+            >
+                <div className="text-center py-6">
+                    <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Trash2 size={40} className="text-rose-500" />
+                    </div>
+                    <p className="text-slate-600 leading-relaxed text-center">
+                        Delete this product? <br />
+                        <span className="text-sm text-slate-400">You can restore it from <b>Archived</b> later.</span>
+                    </p>
+                </div>
+            </Modal>
         </div>
     );
 };

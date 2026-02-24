@@ -44,8 +44,8 @@ const RegisterPage = () => {
     const onSubmit = async (data) => {
         setLoading(true);
         try {
-            await authService.register(data);
-            toast.success('Registration successful! Please login.');
+            const response = await authService.register(data);
+            toast.success(response?.message || 'Registration successful! Please login.');
             navigate('/login');
         } catch (error) {
             const errorMessage = error.response?.data?.message || 'Registration failed.';

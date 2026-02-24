@@ -1,19 +1,38 @@
 import api from './axios';
 
 export const reportService = {
+    // Dashboard summary (Keep existing)
     async getSalesSummary(period) {
         const response = await api.get('/dashboard/summary', { params: { period } });
         return response.data;
     },
 
-    async getSalesReport(from, to) {
-        const response = await api.get('/reports/sales', { params: { from, to } });
-        return response.data;
+    // 1) Monthly Revenue
+    // Backend returns: { year, month, paidRevenue }
+    async getMonthlyRevenue(year, month) {
+        const response = await api.get('/reports/revenue/monthly', {
+            params: { year, month }
+        });
+        return response.data; // flat object: { year, month, paidRevenue }
     },
 
-    async getTopProducts(params) {
-        const response = await api.get('/reports/top-products', { params });
-        return response.data;
+    // 2) Top Products
+    async getTopProducts(year, month, limit) {
+        const response = await api.get('/reports/products/top', {
+            params: { year, month, limit }
+        });
+        const result = response.data;
+        // Handle array or wrapped response
+        return Array.isArray(result) ? result : (result?.data ?? result?.products ?? result?.items ?? []);
     },
 
+    // 3) Unpaid Invoices — pass year & month so the backend can filter by period
+    async getUnpaidInvoices(year, month) {
+        const response = await api.get('/reports/invoices/unpaid', {
+            params: { year, month }
+        });
+        const result = response.data;
+        // Handle array or wrapped response
+        return Array.isArray(result) ? result : (result?.data ?? result?.invoices ?? result?.items ?? []);
+    }
 };

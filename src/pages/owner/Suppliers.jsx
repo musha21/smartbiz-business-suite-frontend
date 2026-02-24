@@ -27,10 +27,6 @@ import {
     Avatar,
     CircularProgress,
     Alert,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     TextField,
     Button,
     Fade,
@@ -42,6 +38,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { toast } from 'react-toastify';
 import { supplierService } from '../../api';
+import Modal from '../../components/ui/Modal';
+import CreatedAtText from '../../components/ui/CreatedAtText';
 
 // Validation Schema
 const supplierSchema = z.object({
@@ -98,9 +96,9 @@ const Suppliers = () => {
     // Create Mutation
     const createMutation = useMutation({
         mutationFn: (data) => supplierService.createSupplier(data),
-        onSuccess: () => {
+        onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['suppliers'] });
-            toast.success('Supplier added successfully');
+            toast.success(data?.message || 'Supplier added successfully');
             handleCloseAddModal();
         },
         onError: (err) => {
@@ -111,9 +109,9 @@ const Suppliers = () => {
     // Update Mutation
     const updateMutation = useMutation({
         mutationFn: ({ id, data }) => supplierService.updateSupplier(id, data),
-        onSuccess: () => {
+        onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['suppliers'] });
-            toast.success('Supplier updated successfully');
+            toast.success(data?.message || 'Supplier updated successfully');
             handleCloseEditModal();
         },
         onError: (err) => {
@@ -124,9 +122,9 @@ const Suppliers = () => {
     // Delete Mutation
     const deleteMutation = useMutation({
         mutationFn: (id) => supplierService.deleteSupplier(id),
-        onSuccess: () => {
+        onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['suppliers'] });
-            toast.success('Supplier removed successfully');
+            toast.success(data?.message || 'Supplier removed successfully');
             setIsDeleteModalOpen(false);
             setAnchorEl(null);
             setSelectedSupplier(null);
@@ -280,6 +278,7 @@ const Suppliers = () => {
                             <TableCell className="font-bold text-slate-500 border-none px-8 py-5">Email</TableCell>
                             <TableCell className="font-bold text-slate-500 border-none px-8 py-5">Phone</TableCell>
                             <TableCell className="font-bold text-slate-500 border-none px-8 py-5">Address</TableCell>
+                            <TableCell className="font-bold text-slate-500 border-none px-8 py-5 text-center">Joined On</TableCell>
                             <TableCell className="font-bold text-slate-500 border-none px-8 py-5 text-right">Actions</TableCell>
                         </TableRow>
                     </TableHead>
@@ -314,6 +313,9 @@ const Suppliers = () => {
                                         <MapPin size={14} className="text-slate-400 flex-shrink-0" />
                                         <span className="truncate max-w-[200px]">{s.address}</span>
                                     </div>
+                                </TableCell>
+                                <TableCell className="border-none px-8 py-6 text-center">
+                                    <CreatedAtText value={s.createdAt} className="justify-center" showIcon={false} />
                                 </TableCell>
                                 <TableCell className="border-none px-8 py-6 text-right">
                                     <IconButton onClick={(e) => handleMenuClick(e, s)}>
@@ -354,112 +356,109 @@ const Suppliers = () => {
                 </MenuItem>
             </Menu>
 
-            {/* Add/Edit Dialog */}
-            <Dialog
-                open={isAddModalOpen || isEditModalOpen}
+            {/* Add/Edit Modal */}
+            <Modal
+                isOpen={isAddModalOpen || isEditModalOpen}
                 onClose={isAddModalOpen ? handleCloseAddModal : handleCloseEditModal}
-                PaperProps={{ sx: { borderRadius: '28px', padding: '12px', maxWidth: '500px', width: '100%' } }}
-            >
-                <DialogTitle className="font-bold text-2xl text-slate-800 flex justify-between items-center">
-                    {isAddModalOpen ? 'Add New Supplier' : 'Update Supplier'}
-                    <IconButton onClick={isAddModalOpen ? handleCloseAddModal : handleCloseEditModal} size="small">
-                        <X size={20} />
-                    </IconButton>
-                </DialogTitle>
-                <form onSubmit={handleSubmit(isAddModalOpen ? onSubmitAdd : onSubmitEdit)}>
-                    <DialogContent className="space-y-5">
-                        <TextField
-                            fullWidth
-                            label="Company Name"
-                            {...register('name')}
-                            error={!!errors.name}
-                            helperText={errors.name?.message}
-                            placeholder="e.g. Silva Groceries"
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '16px' } }}
-                        />
-                        <TextField
-                            fullWidth
-                            label="Email Address (Optional)"
-                            type="email"
-                            {...register('email')}
-                            error={!!errors.email}
-                            helperText={errors.email?.message}
-                            placeholder="john.silva@gmail.com"
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '16px' } }}
-                        />
-                        <TextField
-                            fullWidth
-                            label="Phone Number"
-                            {...register('phone')}
-                            error={!!errors.phone}
-                            helperText={errors.phone?.message}
-                            placeholder="0771234567"
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '16px' } }}
-                        />
-                        <TextField
-                            fullWidth
-                            label="Address"
-                            multiline
-                            rows={3}
-                            {...register('address')}
-                            error={!!errors.address}
-                            helperText={errors.address?.message}
-                            placeholder="Colombo, Sri Lanka"
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '16px' } }}
-                        />
-                    </DialogContent>
-                    <DialogActions className="p-6 pt-2">
-                        <Button
+                title={isAddModalOpen ? 'Add New Supplier' : 'Update Supplier'}
+                footer={
+                    <div className="flex gap-4">
+                        <button
                             onClick={isAddModalOpen ? handleCloseAddModal : handleCloseEditModal}
-                            fullWidth
-                            className="text-slate-500 font-bold py-3 rounded-2xl hover:bg-slate-50"
+                            className="flex-1 bg-slate-100 text-slate-500 font-bold py-4 rounded-2xl hover:bg-slate-200 transition-colors"
                         >
                             Cancel
-                        </Button>
-                        <Button
-                            type="submit"
-                            variant="contained"
-                            fullWidth
+                        </button>
+                        <button
+                            onClick={handleSubmit(isAddModalOpen ? onSubmitAdd : onSubmitEdit)}
                             disabled={createMutation.isPending || updateMutation.isPending}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-2xl shadow-lg shadow-indigo-100"
+                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-100 transition-all active:scale-95 disabled:opacity-50"
                         >
-                            {(createMutation.isPending || updateMutation.isPending) ? <CircularProgress size={24} color="inherit" /> : (isAddModalOpen ? 'Save Supplier' : 'Update Supplier')}
-                        </Button>
-                    </DialogActions>
-                </form>
-            </Dialog>
-
-            {/* Delete Confirmation */}
-            <Dialog
-                open={isDeleteModalOpen}
-                onClose={() => setIsDeleteModalOpen(false)}
-                PaperProps={{ sx: { borderRadius: '24px', padding: '16px', maxWidth: '400px' } }}
+                            {(createMutation.isPending || updateMutation.isPending) ? (
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+                            ) : (isAddModalOpen ? 'Save Supplier' : 'Update Supplier')}
+                        </button>
+                    </div>
+                }
             >
-                <DialogTitle className="font-bold text-center text-slate-800">Remove Supplier?</DialogTitle>
-                <DialogContent>
-                    <p className="text-slate-500 text-center">
-                        Are you sure you want to remove <span className="font-bold text-slate-700">{selectedSupplier?.name}</span>? This action cannot be undone.
+                <div className="space-y-5 py-4">
+                    <TextField
+                        fullWidth
+                        label="Company Name"
+                        {...register('name')}
+                        error={!!errors.name}
+                        helperText={errors.name?.message}
+                        placeholder="e.g. Silva Groceries"
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '16px' } }}
+                    />
+                    <TextField
+                        fullWidth
+                        label="Email Address (Optional)"
+                        type="email"
+                        {...register('email')}
+                        error={!!errors.email}
+                        helperText={errors.email?.message}
+                        placeholder="john.silva@gmail.com"
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '16px' } }}
+                    />
+                    <TextField
+                        fullWidth
+                        label="Phone Number"
+                        {...register('phone')}
+                        error={!!errors.phone}
+                        helperText={errors.phone?.message}
+                        placeholder="0771234567"
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '16px' } }}
+                    />
+                    <TextField
+                        fullWidth
+                        label="Address"
+                        multiline
+                        rows={3}
+                        {...register('address')}
+                        error={!!errors.address}
+                        helperText={errors.address?.message}
+                        placeholder="Colombo, Sri Lanka"
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '16px' } }}
+                    />
+                </div>
+            </Modal>
+
+            {/* Delete Confirmation Modal */}
+            <Modal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                title="Remove Supplier?"
+                footer={
+                    <div className="flex flex-col gap-3 w-full">
+                        <button
+                            onClick={handleDelete}
+                            disabled={deleteMutation.isPending}
+                            className="bg-rose-600 hover:bg-rose-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-rose-100 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            {deleteMutation.isPending ? (
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+                            ) : 'Yes, Remove Supplier'}
+                        </button>
+                        <button
+                            onClick={() => setIsDeleteModalOpen(false)}
+                            className="text-slate-500 font-bold py-4 rounded-2xl hover:bg-slate-50 transition-colors"
+                        >
+                            Keep Supplier
+                        </button>
+                    </div>
+                }
+            >
+                <div className="text-center py-6">
+                    <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Trash2 size={40} className="text-rose-500" />
+                    </div>
+                    <p className="text-slate-600 leading-relaxed">
+                        Are you sure you want to remove <span className="font-black text-slate-800">{selectedSupplier?.name}</span>?<br />
+                        <span className="text-sm text-slate-400">This action cannot be undone.</span>
                     </p>
-                </DialogContent>
-                <DialogActions className="flex-col gap-2 p-6">
-                    <Button
-                        onClick={handleDelete}
-                        variant="contained"
-                        fullWidth
-                        disabled={deleteMutation.isPending}
-                        className="bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 rounded-2xl"
-                    >
-                        {deleteMutation.isPending ? <CircularProgress size={24} color="inherit" /> : 'Yes, Remove Supplier'}
-                    </Button>
-                    <Button
-                        onClick={() => setIsDeleteModalOpen(false)}
-                        fullWidth
-                        className="text-slate-500 font-bold py-3 rounded-2xl"
-                    >
-                        Keep Supplier
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                </div>
+            </Modal>
         </div>
     );
 };

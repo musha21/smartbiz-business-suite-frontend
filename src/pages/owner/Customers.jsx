@@ -25,16 +25,14 @@ import {
     Avatar,
     CircularProgress,
     Alert,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     TextField,
     Button
 } from '@mui/material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { customerService } from '../../api';
+import Modal from '../../components/ui/Modal';
+import CreatedAtText from '../../components/ui/CreatedAtText';
 
 const Customers = () => {
     const [anchorEl, setAnchorEl] = useState(null);
@@ -97,9 +95,9 @@ const Customers = () => {
 
     const deleteMutation = useMutation({
         mutationFn: (id) => customerService.deleteCustomer(id),
-        onSuccess: () => {
+        onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['customers'] });
-            toast.success('Customer deleted successfully');
+            toast.success(data?.message || 'Customer deleted successfully');
             handleClose();
         },
         onError: (err) => {
@@ -109,9 +107,9 @@ const Customers = () => {
 
     const createMutation = useMutation({
         mutationFn: (data) => customerService.createCustomer(data),
-        onSuccess: () => {
+        onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['customers'] });
-            toast.success('Customer added successfully');
+            toast.success(data?.message || 'Customer added successfully');
             setIsAddModalOpen(false);
             setNewCustomer({ name: '', email: '', phone: '', address: '' });
         },
@@ -122,9 +120,9 @@ const Customers = () => {
 
     const updateMutation = useMutation({
         mutationFn: ({ id, data }) => customerService.updateCustomer(id, data),
-        onSuccess: () => {
+        onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['customers'] });
-            toast.success('Customer profile updated');
+            toast.success(data?.message || 'Customer profile updated');
             setIsEditModalOpen(false);
             handleClose();
         },
@@ -280,6 +278,7 @@ const Customers = () => {
                             <TableCell className="font-bold text-slate-500 border-none px-8 py-5">Contact Details</TableCell>
                             <TableCell className="font-bold text-slate-500 border-none px-8 py-5 text-center">Address</TableCell>
                             <TableCell className="font-bold text-slate-500 border-none px-8 py-5 text-center">Status</TableCell>
+                            <TableCell className="font-bold text-slate-500 border-none px-8 py-5 text-center">Joined On</TableCell>
                             <TableCell className="font-bold text-slate-500 border-none px-8 py-5 text-right">Actions</TableCell>
                         </TableRow>
                     </TableHead>
@@ -325,6 +324,9 @@ const Customers = () => {
                                         className={`${customer.status === 'Inactive' ? 'bg-slate-100 text-slate-700' : 'bg-indigo-100 text-indigo-700'} font-bold text-[10px] uppercase tracking-wider h-7`}
                                     />
                                 </TableCell>
+                                <TableCell className="border-none px-8 py-6 text-center">
+                                    <CreatedAtText value={customer.createdAt} className="justify-center" showIcon={false} />
+                                </TableCell>
                                 <TableCell className="border-none px-8 py-6 text-right">
                                     <IconButton onClick={(e) => handleClick(e, customer)}>
                                         <MoreVertical size={20} className="text-slate-400" />
@@ -369,155 +371,153 @@ const Customers = () => {
                 </MenuItem>
             </Menu>
 
-            <Dialog
-                open={isAddModalOpen}
+            {/* Add Modal */}
+            <Modal
+                isOpen={isAddModalOpen}
                 onClose={() => setIsAddModalOpen(false)}
-                PaperProps={{
-                    sx: { borderRadius: '24px', padding: '16px', maxWidth: '500px', width: '100%' }
-                }}
-            >
-                <form onSubmit={handleCreateSubmit}>
-                    <DialogTitle className="font-bold text-2xl text-slate-800">Add New Customer</DialogTitle>
-                    <DialogContent className="space-y-4 pt-4">
-                        <TextField
-                            fullWidth
-                            label="Customer Name"
-                            variant="outlined"
-                            required
-                            value={newCustomer.name}
-                            onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                        />
-                        <TextField
-                            fullWidth
-                            label="Email Address"
-                            type="email"
-                            variant="outlined"
-                            required
-                            value={newCustomer.email}
-                            onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                        />
-                        <TextField
-                            fullWidth
-                            label="Phone Number"
-                            variant="outlined"
-                            required
-                            value={newCustomer.phone}
-                            onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                        />
-                        <TextField
-                            fullWidth
-                            label="Address"
-                            variant="outlined"
-                            multiline
-                            rows={3}
-                            value={newCustomer.address}
-                            onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                        />
-                    </DialogContent>
-                    <DialogActions className="p-6">
-                        <Button
+                title="Add New Customer"
+                footer={
+                    <div className="flex gap-4">
+                        <button
                             onClick={() => setIsAddModalOpen(false)}
-                            className="text-slate-500 font-bold px-6"
+                            className="flex-1 bg-slate-100 text-slate-500 font-bold py-4 rounded-2xl hover:bg-slate-200 transition-colors"
                         >
                             Cancel
-                        </Button>
-                        <Button
-                            type="submit"
-                            variant="contained"
+                        </button>
+                        <button
+                            onClick={handleCreateSubmit}
                             disabled={createMutation.isPending}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 py-2.5 rounded-xl shadow-lg shadow-indigo-100"
+                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-100 transition-all active:scale-95 disabled:opacity-50"
                         >
-                            {createMutation.isPending ? <CircularProgress size={20} color="inherit" /> : 'Save Customer'}
-                        </Button>
-                    </DialogActions>
-                </form>
-            </Dialog>
-
-            <Dialog
-                open={isEditModalOpen}
-                onClose={() => setIsEditModalOpen(false)}
-                PaperProps={{
-                    sx: { borderRadius: '24px', padding: '16px', maxWidth: '500px', width: '100%' }
-                }}
+                            {createMutation.isPending ? (
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+                            ) : 'Save Customer'}
+                        </button>
+                    </div>
+                }
             >
-                <form onSubmit={handleUpdateSubmit}>
-                    <DialogTitle className="font-bold text-2xl text-slate-800">Edit Customer Profile</DialogTitle>
-                    <DialogContent className="space-y-4 pt-4">
-                        <TextField
-                            fullWidth
-                            label="Customer Name"
-                            variant="outlined"
-                            required
-                            value={editCustomer.name}
-                            onChange={(e) => setEditCustomer({ ...editCustomer, name: e.target.value })}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                        />
-                        <TextField
-                            fullWidth
-                            label="Email Address"
-                            type="email"
-                            variant="outlined"
-                            required
-                            value={editCustomer.email}
-                            onChange={(e) => setEditCustomer({ ...editCustomer, email: e.target.value })}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                        />
-                        <TextField
-                            fullWidth
-                            label="Phone Number"
-                            variant="outlined"
-                            required
-                            value={editCustomer.phone}
-                            onChange={(e) => setEditCustomer({ ...editCustomer, phone: e.target.value })}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                        />
-                        <TextField
-                            fullWidth
-                            select
-                            label="Status"
-                            variant="outlined"
-                            required
-                            value={editCustomer.status || 'Active'}
-                            onChange={(e) => setEditCustomer({ ...editCustomer, status: e.target.value })}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                        >
-                            <MenuItem value="Active">Active</MenuItem>
-                            <MenuItem value="Inactive">Inactive</MenuItem>
-                            <MenuItem value="Premium">Premium</MenuItem>
-                        </TextField>
-                        <TextField
-                            fullWidth
-                            label="Address"
-                            variant="outlined"
-                            multiline
-                            rows={3}
-                            value={editCustomer.address}
-                            onChange={(e) => setEditCustomer({ ...editCustomer, address: e.target.value })}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                        />
-                    </DialogContent>
-                    <DialogActions className="p-6">
-                        <Button
+                <div className="space-y-4 py-4">
+                    <TextField
+                        fullWidth
+                        label="Customer Name"
+                        variant="outlined"
+                        required
+                        value={newCustomer.name}
+                        onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+                    />
+                    <TextField
+                        fullWidth
+                        label="Email Address"
+                        type="email"
+                        variant="outlined"
+                        required
+                        value={newCustomer.email}
+                        onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+                    />
+                    <TextField
+                        fullWidth
+                        label="Phone Number"
+                        variant="outlined"
+                        required
+                        value={newCustomer.phone}
+                        onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+                    />
+                    <TextField
+                        fullWidth
+                        label="Address"
+                        variant="outlined"
+                        multiline
+                        rows={3}
+                        value={newCustomer.address}
+                        onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+                    />
+                </div>
+            </Modal>
+
+            {/* Edit Modal */}
+            <Modal
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                title="Edit Customer Profile"
+                footer={
+                    <div className="flex gap-4">
+                        <button
                             onClick={() => setIsEditModalOpen(false)}
-                            className="text-slate-500 font-bold px-6"
+                            className="flex-1 bg-slate-100 text-slate-500 font-bold py-4 rounded-2xl hover:bg-slate-200 transition-colors"
                         >
                             Cancel
-                        </Button>
-                        <Button
-                            type="submit"
-                            variant="contained"
+                        </button>
+                        <button
+                            onClick={handleUpdateSubmit}
                             disabled={updateMutation.isPending}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 py-2.5 rounded-xl shadow-lg shadow-indigo-100"
+                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-100 transition-all active:scale-95 disabled:opacity-50"
                         >
-                            {updateMutation.isPending ? <CircularProgress size={20} color="inherit" /> : 'Update Customer'}
-                        </Button>
-                    </DialogActions>
-                </form>
-            </Dialog>
+                            {updateMutation.isPending ? (
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+                            ) : 'Update Customer'}
+                        </button>
+                    </div>
+                }
+            >
+                <div className="space-y-4 py-4">
+                    <TextField
+                        fullWidth
+                        label="Customer Name"
+                        variant="outlined"
+                        required
+                        value={editCustomer.name}
+                        onChange={(e) => setEditCustomer({ ...editCustomer, name: e.target.value })}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+                    />
+                    <TextField
+                        fullWidth
+                        label="Email Address"
+                        type="email"
+                        variant="outlined"
+                        required
+                        value={editCustomer.email}
+                        onChange={(e) => setEditCustomer({ ...editCustomer, email: e.target.value })}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+                    />
+                    <TextField
+                        fullWidth
+                        label="Phone Number"
+                        variant="outlined"
+                        required
+                        value={editCustomer.phone}
+                        onChange={(e) => setEditCustomer({ ...editCustomer, phone: e.target.value })}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+                    />
+                    <TextField
+                        fullWidth
+                        select
+                        label="Status"
+                        variant="outlined"
+                        required
+                        value={editCustomer.status || 'Active'}
+                        onChange={(e) => setEditCustomer({ ...editCustomer, status: e.target.value })}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+                    >
+                        <MenuItem value="Active">Active</MenuItem>
+                        <MenuItem value="Inactive">Inactive</MenuItem>
+                        <MenuItem value="Premium">Premium</MenuItem>
+                    </TextField>
+                    <TextField
+                        fullWidth
+                        label="Address"
+                        variant="outlined"
+                        multiline
+                        rows={3}
+                        value={editCustomer.address}
+                        onChange={(e) => setEditCustomer({ ...editCustomer, address: e.target.value })}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+                    />
+                </div>
+            </Modal>
         </div >
     );
 };

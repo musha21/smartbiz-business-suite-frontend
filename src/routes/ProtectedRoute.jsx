@@ -1,32 +1,31 @@
-import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { isAuthenticated as checkAuthToken, getUserRole } from '../utils/auth';
-import LoadingSpinner from '../components/common/LoadingSpinner';
+import React from "react";
+import { Navigate, Outlet } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { isAuthenticated as checkAuthToken, getUserRole } from "../utils/auth";
+import LoadingSpinner from "../components/common/LoadingSpinner";
 
-const ProtectedRoute = ({ allowedRole }) => {
+const normalizeRole = (r) => (r === "USER" ? "OWNER" : r);
+
+const ProtectedRoute = ({ allowedRoles = [] }) => {
     const { isAuthenticated, user, isLoading } = useAuth();
 
-    // 1. Loading State
-    if (isLoading) {
-        return <LoadingSpinner fullPage />;
-    }
+    // 1) Loading
+    if (isLoading) return <LoadingSpinner fullPage />;
 
-    // 2. Client-side Auth Check (Context + Token)
+    // 2) Auth check (context + token)
     const tokenValid = checkAuthToken();
-    if (!isAuthenticated || !tokenValid) {
-        return <Navigate to="/login" replace />;
-    }
+    if (!isAuthenticated || !tokenValid) return <Navigate to="/login" replace />;
 
-    // 3. Role-based Access Control
-    if (allowedRole) {
-        const userRole = user?.role || getUserRole(localStorage.getItem('token'));
+    // 3) Resolve role safely
+    const token = localStorage.getItem("token");
+    const roleFromContext = user?.role;
+    const roleFromToken = getUserRole(token);
+    const userRole = normalizeRole(roleFromContext || roleFromToken);
 
-        if (userRole !== allowedRole) {
-            // Redirect to appropriate dashboard based on actual role
-            const redirectPath = userRole === 'ADMIN' ? '/admin/dashboard' : '/dashboard';
-            return <Navigate to={redirectPath} replace />;
-        }
+    // 4) Role-based access
+    if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
+        const redirectPath = userRole === "ADMIN" ? "/admin/dashboard" : "/dashboard";
+        return <Navigate to={redirectPath} replace />;
     }
 
     return <Outlet />;

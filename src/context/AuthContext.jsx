@@ -47,15 +47,25 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const login = (data) => {
+        // Normalize user object — backend may return it as data.user, data.owner, or inline fields
+        const userObj = data.user || data.owner || {
+            username: data.username,
+            name: data.name,
+            fullName: data.fullName,
+            email: data.email,
+            role: data.role,
+        };
+        const businessObj = data.business || null;
+
         localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        if (data.business) {
-            localStorage.setItem('business', JSON.stringify(data.business));
+        localStorage.setItem('user', JSON.stringify(userObj));
+        if (businessObj) {
+            localStorage.setItem('business', JSON.stringify(businessObj));
         }
         setState({
             token: data.token,
-            user: data.user,
-            business: data.business || null,
+            user: userObj,
+            business: businessObj,
             isAuthenticated: true,
             isLoading: false,
         });

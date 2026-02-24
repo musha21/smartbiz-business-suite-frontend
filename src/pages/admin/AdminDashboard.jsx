@@ -1,151 +1,142 @@
-import React from 'react';
+import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import {
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip as ReTooltip,
-    ResponsiveContainer,
-    LineChart,
-    Line,
-    PieChart,
-    Pie,
-    Cell
-} from 'recharts';
-import {
-    Business,
-    GroupAdd,
-    MonetizationOn,
-    Psychology,
-    Notifications
-} from '@mui/icons-material';
-
-const mockSignupTrend = [
-    { month: 'Jan', count: 45 },
-    { month: 'Feb', count: 52 },
-    { month: 'Mar', count: 48 },
-    { month: 'Apr', count: 70 },
-    { month: 'May', count: 61 },
-    { month: 'Jun', count: 95 },
-];
-
-const mockRevenueByPlan = [
-    { name: 'Free', value: 12500 },
-    { name: 'Basic', value: 18400 },
-    { name: 'Premium', value: 32600 },
-];
-
-const COLORS = ['#94a3b8', '#3b82f6', '#1d4ed8'];
+    getAdminStats,
+    getAdminLogs
+} from "../../api";
+import StatsCards from "../../components/admin/StatsCards";
+import LatestLogsTable from "../../components/admin/LatestLogsTable";
 
 const AdminDashboard = () => {
-    const stats = [
-        { title: "Total Businesses", value: "1,280", trend: "+12%", icon: <Business />, color: "text-blue-600" },
-        { title: "Active Platforms", value: "842", trend: "+5%", icon: <GroupAdd />, color: "text-indigo-600" },
-        { title: "Monthly Revenue", value: "$46,500", trend: "+24%", icon: <MonetizationOn />, color: "text-emerald-600" },
-        { title: "AI Computations", value: "14.2k", trend: "+60%", icon: <Psychology />, color: "text-purple-600" },
-    ];
+    const navigate = useNavigate();
+
+    // 1. Fetch Stats
+    const {
+        data: stats,
+        isLoading: statsLoading,
+        isError: statsError,
+        error: statsErrorObj,
+        refetch: refetchStats
+    } = useQuery({
+        queryKey: ["adminStatsOverview"],
+        queryFn: getAdminStats,
+    });
+
+    // 2. Fetch Logs
+    const {
+        data: logs,
+        isLoading: logsLoading,
+        isError: logsError,
+        error: logsErrorObj,
+        refetch: refetchLogs
+    } = useQuery({
+        queryKey: ["adminLogs", 20],
+        queryFn: () => getAdminLogs(20),
+    });
+
+    const isLoading = statsLoading || logsLoading;
+    const isForbidden = statsErrorObj?.isForbidden || logsErrorObj?.isForbidden;
+    const hasGeneralError = (statsError || logsError) && !isForbidden;
+
+    // Retry all Handler
+    const handleRetryAll = () => {
+        refetchStats();
+        refetchLogs();
+    };
+
+    // Forbidden UI State
+    if (isForbidden) {
+        return (
+            <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-center">
+                <div className="bg-rose-100 p-4 rounded-full mb-4">
+                    <svg className="w-12 h-12 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H10m11 3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <h2 className="text-3xl font-bold text-slate-800 mb-2">Admin Access Required</h2>
+                <p className="text-slate-600 mb-8 max-w-md">
+                    You do not have the necessary permissions to view the admin dashboard.
+                    Please log in with an administrator account.
+                </p>
+                <button
+                    onClick={() => navigate('/login')}
+                    className="bg-slate-900 text-white px-8 py-3 rounded-xl font-semibold hover:bg-slate-800 transition-all shadow-lg active:scale-95"
+                >
+                    Go to Login
+                </button>
+            </div>
+        );
+    }
+
+    // Error UI State
+    if (hasGeneralError) {
+        return (
+            <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-center">
+                <div className="bg-amber-100 p-4 rounded-full mb-4">
+                    <svg className="w-12 h-12 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-slate-800 mb-2">Failed to load dashboard</h2>
+                <p className="text-slate-600 mb-6">Something went wrong while fetching the admin data.</p>
+                <button
+                    onClick={handleRetryAll}
+                    className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-all flex items-center gap-2"
+                >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor border">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Retry Loading
+                </button>
+            </div>
+        );
+    }
 
     return (
-        <div className="space-y-10">
-            <div className="flex justify-between items-end">
+        <div className="p-6 max-w-[1600px] mx-auto min-h-screen bg-slate-50/30">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                 <div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter">System Pulse</h1>
-                    <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mt-2">Real-time Platform Metrics</p>
+                    <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Admin Dashboard</h1>
+                    <p className="text-slate-500 mt-1">SaaS ERP Global Overview & System Health</p>
                 </div>
-                <div className="px-6 py-3 bg-white border border-slate-200 rounded-2xl shadow-sm text-sm font-black text-slate-700">
-                    Last Snapshot: {new Date().toLocaleTimeString()}
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={handleRetryAll}
+                        className="p-2.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-all"
+                        title="Refresh Data"
+                    >
+                        <svg className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                {stats.map((s, i) => (
-                    <div key={i} className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
-                        <div className="flex justify-between items-start mb-6">
-                            <div className={`p-4 rounded-2xl bg-slate-50 ${s.color} group-hover:bg-blue-600 group-hover:text-white transition-colors`}>
-                                {s.icon}
-                            </div>
-                            <span className="text-emerald-600 font-black text-xs bg-emerald-50 px-3 py-1 rounded-full">{s.trend}</span>
-                        </div>
-                        <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">{s.title}</p>
-                        <h3 className="text-3xl font-black text-slate-900 mt-1">{s.value}</h3>
+            {isLoading ? (
+                <div className="space-y-6">
+                    {/* Skeleton Loaders */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {[...Array(8)].map((_, i) => (
+                            <div key={i} className="h-32 bg-slate-200 animate-pulse rounded-xl" />
+                        ))}
                     </div>
-                ))}
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                <div className="bg-slate-900 p-10 rounded-[3rem] shadow-2xl">
-                    <h3 className="text-white font-black uppercase tracking-widest text-sm mb-10">New Registration Velocity</h3>
-                    <div className="h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={mockSignupTrend}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
-                                <XAxis dataKey="month" stroke="#475569" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
-                                <YAxis stroke="#475569" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
-                                <ReTooltip
-                                    contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '12px', color: 'white' }}
-                                    itemStyle={{ color: '#60a5fa' }}
-                                />
-                                <Line type="stepAfter" dataKey="count" stroke="#3b82f6" strokeWidth={4} dot={{ r: 4, fill: '#3b82f6', strokeWidth: 2 }} />
-                            </LineChart>
-                        </ResponsiveContainer>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="h-[400px] bg-slate-200 animate-pulse rounded-xl" />
+                        <div className="h-[400px] bg-slate-200 animate-pulse rounded-xl" />
                     </div>
                 </div>
+            ) : (
+                <>
+                    {/* Stats Section */}
+                    <StatsCards stats={stats} />
 
-                <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
-                    <h3 className="text-slate-900 font-black uppercase tracking-widest text-sm mb-10">Revenue Yield by Segment</h3>
-                    <div className="h-[300px] flex">
-                        <ResponsiveContainer width="60%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={mockRevenueByPlan}
-                                    innerRadius={80}
-                                    outerRadius={120}
-                                    paddingAngle={8}
-                                    dataKey="value"
-                                >
-                                    {mockRevenueByPlan.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <ReTooltip />
-                            </PieChart>
-                        </ResponsiveContainer>
-                        <div className="flex-1 flex flex-col justify-center space-y-6 ml-8">
-                            {mockRevenueByPlan.map((p, i) => (
-                                <div key={i} className="flex items-center gap-4">
-                                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
-                                    <div>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{p.name}</p>
-                                        <p className="text-xl font-black text-slate-800">${p.value.toLocaleString()}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                    {/* Tables Section */}
+                    <div className="grid grid-cols-1 gap-6 items-start">
+                        <LatestLogsTable logs={logs || []} />
                     </div>
-                </div>
-            </div>
-
-            <div className="bg-white rounded-[3rem] border border-slate-100 shadow-sm overflow-hidden">
-                <div className="p-10 border-b border-slate-100 flex justify-between items-center">
-                    <h3 className="text-slate-900 font-black uppercase tracking-widest text-sm">Target Intelligence Activities</h3>
-                    <button className="px-5 py-2 bg-slate-50 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100">Audit All</button>
-                </div>
-                <div className="p-2">
-                    {[1, 2, 3, 4, 5].map(i => (
-                        <div key={i} className="flex items-center gap-6 p-6 hover:bg-slate-50 rounded-[2rem] transition-colors border-b border-slate-50 last:border-0 pt-0">
-                            <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
-                                <Notifications fontSize="small" />
-                            </div>
-                            <div className="flex-1">
-                                <p className="text-sm font-bold text-slate-800">New Business Registered: <span className="text-blue-600">Quantum Logistics Ltd.</span></p>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Status: Active • {i * 12} mins ago</p>
-                            </div>
-                            <button className="px-4 py-2 border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-blue-300 hover:text-blue-600 transition-colors">
-                                Inspect
-                            </button>
-                        </div>
-                    ))}
-                </div>
-            </div>
+                </>
+            )}
         </div>
     );
 };

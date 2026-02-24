@@ -11,13 +11,13 @@ export const businessService = {
         return response.data;
     },
 
-    async updateBusinessStatus(id, status) {
-        const response = await api.put(`/admin/businesses/${id}/status`, { status });
+    async enableBusiness(id) {
+        const response = await api.patch(`/admin/businesses/${id}/enable`);
         return response.data;
     },
 
-    async updateBusinessPlan(businessId, planId) {
-        const response = await api.put(`/admin/businesses/${businessId}/plan`, { planId });
+    async disableBusiness(id) {
+        const response = await api.patch(`/admin/businesses/${id}/disable`);
         return response.data;
     },
 

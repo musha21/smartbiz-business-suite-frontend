@@ -8,18 +8,19 @@ import {
     Psychology as AIUsageIcon,
     Layers as PlansIcon,
     Settings as SettingsIcon,
-    Logout as LogoutIcon
+    CreditCard as CreditCardIcon
 } from '@mui/icons-material';
+import AssignSubscriptionModal from '../../../pages/admin/AssignSubscriptionModal';
 
 const AdminSidebar = () => {
-    const { logout } = useAuth();
+    const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
 
     const menuItems = [
         { name: 'Dashboard', path: '/admin/dashboard', icon: <DashboardIcon /> },
+        { name: 'Subscription Plans', path: '/admin/plans', icon: <PlansIcon /> },
         { name: 'Businesses', path: '/admin/businesses', icon: <BusinessIcon /> },
         { name: 'Usage Logs', path: '/admin/usage-logs', icon: <HistoryIcon /> },
         { name: 'AI Analytics', path: '/admin/ai-usage', icon: <AIUsageIcon /> },
-        { name: 'Subscription Plans', path: '/admin/plans', icon: <PlansIcon /> },
         { name: 'Settings', path: '/admin/settings', icon: <SettingsIcon /> },
     ];
 
@@ -71,13 +72,18 @@ const AdminSidebar = () => {
                 </div>
 
                 <button
-                    onClick={logout}
-                    className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg active:scale-95"
+                    onClick={() => setIsAssignModalOpen(true)}
+                    className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg active:scale-95 border-none cursor-pointer"
                 >
-                    <LogoutIcon fontSize="small" />
-                    <span>Logout</span>
+                    <CreditCardIcon fontSize="small" />
+                    <span>Provision Plan</span>
                 </button>
             </div>
+
+            <AssignSubscriptionModal
+                isOpen={isAssignModalOpen}
+                onClose={() => setIsAssignModalOpen(false)}
+            />
         </aside>
     );
 };
