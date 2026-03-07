@@ -4,7 +4,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate, Link } from 'react-router-dom';
 import { authService } from '../../api/auth.service';
-import { toast } from 'react-toastify';
 import {
     TextField,
     Button,
@@ -44,12 +43,10 @@ const RegisterPage = () => {
     const onSubmit = async (data) => {
         setLoading(true);
         try {
-            const response = await authService.register(data);
-            toast.success(response?.message || 'Registration successful! Please login.');
+            await authService.register(data);
             navigate('/login');
         } catch (error) {
-            const errorMessage = error.response?.data?.message || 'Registration failed.';
-            toast.error(errorMessage);
+            // Handled globally
         } finally {
             setLoading(false);
         }

@@ -16,66 +16,137 @@ const AdminSidebar = () => {
     const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
 
     const menuItems = [
-        { name: 'Dashboard', path: '/admin/dashboard', icon: <DashboardIcon /> },
-        { name: 'Subscription Plans', path: '/admin/plans', icon: <PlansIcon /> },
-        { name: 'Businesses', path: '/admin/businesses', icon: <BusinessIcon /> },
-        { name: 'Usage Logs', path: '/admin/usage-logs', icon: <HistoryIcon /> },
-        { name: 'AI Analytics', path: '/admin/ai-usage', icon: <AIUsageIcon /> },
-        { name: 'Settings', path: '/admin/settings', icon: <SettingsIcon /> },
+        { name: 'Dashboard', path: '/admin/dashboard', icon: <DashboardIcon sx={{ fontSize: 20 }} /> },
+        { name: 'Subscription Plans', path: '/admin/plans', icon: <PlansIcon sx={{ fontSize: 20 }} />, badge: 3 },
+        { name: 'Businesses', path: '/admin/businesses', icon: <BusinessIcon sx={{ fontSize: 20 }} /> },
+        { name: 'Usage Logs', path: '/admin/usage-logs', icon: <HistoryIcon sx={{ fontSize: 20 }} /> },
+        { name: 'AI Analytics', path: '/admin/ai-usage', icon: <AIUsageIcon sx={{ fontSize: 20 }} /> },
+        { name: 'Settings', path: '/admin/settings', icon: <SettingsIcon sx={{ fontSize: 20 }} /> },
     ];
 
     return (
-        <aside className="w-64 bg-black text-white min-h-screen flex flex-col shadow-2xl font-sans transition-all duration-300">
+        <aside className="w-64 bg-[#0c0d10] border-r border-white/5 text-slate-400 min-h-screen flex flex-col font-sans transition-all duration-300">
             {/* Logo Section */}
-            <div className="p-8 flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-xl shadow-lg shadow-blue-600/40">
-                    S
+            <div className="p-8 pb-10 flex items-center gap-4">
+                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center font-black text-xl shadow-lg shadow-indigo-600/30 text-white transform hover:rotate-12 transition-transform">
+                    <CreditCardIcon />
                 </div>
-                <span className="text-2xl font-extrabold tracking-tight text-white">SMART<span className="text-blue-500">BIZ</span></span>
+                <div className="flex flex-col">
+                    <span className="text-lg font-black tracking-tight text-white leading-tight">SMART<span className="text-indigo-500">BIZ</span></span>
+                </div>
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 px-4 space-y-2 overflow-y-auto custom-scrollbar">
-                {menuItems.map((item) => (
-                    <NavLink
-                        key={item.path}
-                        to={item.path}
-                        className={({ isActive }) => `
-              flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all duration-300 group
-              ${isActive
-                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
-                                : 'text-slate-400 hover:text-white hover:bg-slate-900'}
-            `}
-                    >
-                        {({ isActive }) => (
-                            <>
-                                <span className={`transition-transform duration-300 ${isActive ? '' : 'group-hover:scale-110'}`}>{item.icon}</span>
-                                <span className="font-bold text-sm tracking-wide">{item.name}</span>
-                            </>
-                        )}
-                    </NavLink>
-                ))}
-            </nav>
+            <div className="px-6 mb-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-4 opacity-70">Overview</p>
+                <nav className="space-y-1">
+                    {menuItems.slice(0, 1).map((item) => (
+                        <NavLink
+                            key={item.path}
+                            to={item.path}
+                            className={({ isActive }) => `
+                flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 group
+                ${isActive
+                                    ? 'bg-white/5 text-white'
+                                    : 'hover:text-white hover:bg-white/5'}
+              `}
+                        >
+                            <span className="opacity-70 group-hover:opacity-100 transition-opacity">{item.icon}</span>
+                            <span className="font-bold text-sm">{item.name}</span>
+                        </NavLink>
+                    ))}
+                </nav>
+            </div>
+
+            <div className="px-6 mb-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-4 opacity-70">Management</p>
+                <nav className="space-y-1">
+                    {menuItems.slice(1, 4).map((item) => (
+                        <NavLink
+                            key={item.path}
+                            to={item.path}
+                            className={({ isActive }) => `
+                flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-300 group
+                ${isActive
+                                    ? 'bg-white/5 text-white'
+                                    : 'hover:text-white hover:bg-white/5'}
+              `}
+                        >
+                            <div className="flex items-center gap-4">
+                                <span className="opacity-70 group-hover:opacity-100 transition-opacity">{item.icon}</span>
+                                <span className="font-bold text-sm text-[13px]">{item.name}</span>
+                            </div>
+                            {item.badge && (
+                                <span className="bg-indigo-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                                    {item.badge}
+                                </span>
+                            )}
+                        </NavLink>
+                    ))}
+                </nav>
+            </div>
+
+            <div className="px-6 mb-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-4 opacity-70">Insights</p>
+                <nav className="space-y-1">
+                    {menuItems.slice(4, 5).map((item) => (
+                        <NavLink
+                            key={item.path}
+                            to={item.path}
+                            className={({ isActive }) => `
+                flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 group
+                ${isActive
+                                    ? 'bg-white/5 text-white'
+                                    : 'hover:text-white hover:bg-white/5'}
+              `}
+                        >
+                            <span className="opacity-70 group-hover:opacity-100 transition-opacity">{item.icon}</span>
+                            <span className="font-bold text-sm">{item.name}</span>
+                        </NavLink>
+                    ))}
+                </nav>
+            </div>
+
+            <div className="px-6 mb-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-4 opacity-70">System</p>
+                <nav className="space-y-1">
+                    {menuItems.slice(5).map((item) => (
+                        <NavLink
+                            key={item.path}
+                            to={item.path}
+                            className={({ isActive }) => `
+                flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 group
+                ${isActive
+                                    ? 'bg-white/5 text-white'
+                                    : 'hover:text-white hover:bg-white/5'}
+              `}
+                        >
+                            <span className="opacity-70 group-hover:opacity-100 transition-opacity">{item.icon}</span>
+                            <span className="font-bold text-sm">{item.name}</span>
+                        </NavLink>
+                    ))}
+                </nav>
+            </div>
 
             {/* Bottom Actions */}
-            <div className="p-6">
-                <div className="bg-slate-900/50 p-4 rounded-3xl border border-slate-800 mb-4">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+            <div className="mt-auto p-6 space-y-4">
+                <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-black text-xs">
                             AD
                         </div>
-                        <div>
+                        <div className="overflow-hidden">
+                            <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-0.5">Super Admin</p>
                             <p className="text-sm font-bold text-white truncate">Admin User</p>
-                            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Super Admin</p>
                         </div>
                     </div>
                 </div>
 
                 <button
                     onClick={() => setIsAssignModalOpen(true)}
-                    className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg active:scale-95 border-none cursor-pointer"
+                    className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20 active:scale-[0.98]"
                 >
-                    <CreditCardIcon fontSize="small" />
+                    <CreditCardIcon sx={{ fontSize: 16 }} />
                     <span>Provision Plan</span>
                 </button>
             </div>

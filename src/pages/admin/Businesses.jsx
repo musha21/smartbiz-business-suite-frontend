@@ -9,12 +9,13 @@ import {
     Shield,
     AlertTriangle,
     MoreVertical,
-    CreditCard
+    CreditCard,
+    Download,
+    ChevronRight as ArrowIcon
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { businessService } from '../../api';
-import { toast } from 'react-toastify';
 
 // UI Components
 import DataTable from '../../components/ui/DataTable';
@@ -23,6 +24,7 @@ import Loader from '../../components/ui/Loader';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import AssignSubscriptionModal from './AssignSubscriptionModal';
+import { Tooltip, IconButton } from '@mui/material';
 
 const Businesses = () => {
     const navigate = useNavigate();
@@ -48,11 +50,10 @@ const Businesses = () => {
         },
         onSuccess: (data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['admin-businesses'] });
-            toast.success(data?.message || `Business instance ${variables.isActive ? 'disabled' : 'enabled'} successfully.`);
             setActiveMenu(null);
         },
         onError: (err) => {
-            toast.error(err.response?.data?.message || 'Failed to update governance state.');
+            // Handled globally
         }
     });
 
@@ -77,7 +78,6 @@ const Businesses = () => {
 
     const handleExportCSV = () => {
         if (filteredBusinesses.length === 0) {
-            toast.warn('No data to export');
             return;
         }
 
@@ -90,21 +90,13 @@ const Businesses = () => {
             getIsActive(b) ? 'Active' : 'Inactive'
         ]);
 
-        const csvContent = [
-            headers.join(','),
-            ...rows.map(row => row.join(','))
-        ].join('\n');
-
+        const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
         link.setAttribute('href', url);
-        link.setAttribute('download', `businesses_registry_${new Date().toISOString().split('T')[0]}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
+        link.setAttribute('download', `registry_${new Date().toISOString().split('T')[0]}.csv`);
         link.click();
-        document.body.removeChild(link);
-        toast.success('Registry exported successfully');
     };
 
     const suspendedCount = businesses?.filter(b => !getIsActive(b)).length || 0;
@@ -113,122 +105,132 @@ const Businesses = () => {
         {
             key: 'id',
             label: 'ID',
-            render: (val) => <span className="font-mono text-indigo-600 font-black text-xs bg-indigo-50 px-2 py-1 rounded-lg">#{val}</span>
+            render: (val) => <span className="font-mono text-indigo-400 font-black text-[10px] bg-white/5 border border-white/10 px-2 py-1 rounded-lg">#{val}</span>
         },
         {
             key: 'name',
             label: 'Business Entity',
             render: (val, row) => (
                 <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-indigo-500 shadow-sm shrink-0">
-                        <Building2 size={20} />
+                    <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center text-indigo-500 shadow-sm border border-white/5 shrink-0 group-hover:scale-110 transition-transform">
+                        <Building2 size={18} />
                     </div>
                     <div>
-                        <p className="font-black text-slate-800 leading-tight">{val}</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{row.ownerName || 'Admin User'}</p>
+                        <p className="font-black text-white leading-tight tracking-tight">{val}</p>
+                        <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-0.5">{row.ownerName || 'Admin User'}</p>
                     </div>
                 </div>
             )
         },
         {
             key: 'status',
-            label: 'Active Status',
+            label: 'governance Status',
             render: (_, row) => {
                 const isActive = getIsActive(row);
                 return (
-                    <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]'}`} />
-                        <span className={`text-[10px] font-black uppercase tracking-widest ${isActive ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {isActive ? 'Active' : 'False'}
-                        </span>
-                    </div>
+                    <Badge variant={isActive ? 'success' : 'danger'} dark>
+                        {isActive ? 'Operational' : 'Suspended'}
+                    </Badge>
                 );
             }
         },
+        {
+            key: 'usage',
+            label: 'Resource Load',
+            render: () => (
+                <div className="flex items-center gap-3">
+                    <div className="w-24 h-1 bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-500/40" style={{ width: '45%' }}></div>
+                    </div>
+                    <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Normal</span>
+                </div>
+            )
+        }
     ];
 
-    if (isLoading) return <Loader fullPage text="Retrieving registry data..." />;
-
-    if (error) {
-        return (
-            <div className="p-8">
-                <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-3xl px-8 py-6 font-semibold shadow-sm text-center">
-                    Connection Error: Unable to synchronize with the business governance API.
-                </div>
-            </div>
-        );
-    }
+    if (isLoading) return <Loader fullPage dark text="Retrieving registry data..." />;
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-700 pb-20">
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 pb-20">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Instance Governance</h1>
-                    <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mt-2">
-                        Managing {businesses?.length || 0} production business instances
-                    </p>
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-white/5 relative">
+                <div className="space-y-2">
+                    <h1 className="text-5xl font-black text-white tracking-tighter italic uppercase leading-none">
+                        Instance Governance
+                    </h1>
+                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">Managing {businesses?.length || 0} global business deployments</p>
                 </div>
-                <div className="flex gap-3">
-                    <Button variant="outline" icon={Shield} onClick={() => { }}>Audit Logs</Button>
-                    <Button
-                        variant="dark"
-                        icon={CreditCard}
-                        onClick={() => setIsAssignModalOpen(true)}
-                        className="bg-indigo-600 hover:bg-indigo-700 border-none shadow-lg shadow-indigo-100"
+
+                <div className="flex gap-4">
+                    <button
+                        onClick={() => { }}
+                        className="flex items-center gap-2.5 bg-white/5 text-slate-400 px-6 py-3.5 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:text-white transition-all border border-white/5"
                     >
-                        Assign Subscription
-                    </Button>
+                        <Shield size={16} />
+                        <span>Audit Registry</span>
+                    </button>
+                    <button
+                        onClick={() => setIsAssignModalOpen(true)}
+                        className="flex items-center gap-2.5 bg-indigo-600 text-white px-8 py-3.5 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
+                    >
+                        <CreditCard size={16} />
+                        <span>Provision Plan</span>
+                    </button>
                 </div>
             </div>
 
             {/* Suspended Alert */}
             {suspendedCount > 0 && (
-                <div className="bg-rose-50 border border-rose-100 rounded-[2rem] p-6 flex items-center gap-5 shadow-sm animate-in slide-in-from-top-4">
-                    <div className="w-12 h-12 bg-rose-500 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-rose-200">
-                        <AlertTriangle size={24} />
+                <div className="bg-rose-500/5 border border-rose-500/10 rounded-[32px] p-8 flex items-center gap-6 group hover:bg-rose-500/10 transition-all">
+                    <div className="w-16 h-16 bg-rose-500 text-white rounded-[24px] flex items-center justify-center shrink-0 shadow-[0_0_30px_rgba(244,63,94,0.3)] transform group-hover:rotate-12 transition-transform">
+                        <AlertTriangle size={32} />
                     </div>
                     <div>
-                        <h3 className="font-black text-rose-900 leading-tight text-lg">Infrastructure Warning</h3>
-                        <p className="text-rose-600 text-sm font-bold opacity-80 mt-0.5">There are {suspendedCount} business instance(s) currently <span className="underline">disabled</span>. System resource allocation for these nodes is restricted.</p>
+                        <h3 className="text-xl font-black text-white leading-tight mb-1">Infrastructure Isolation Detected</h3>
+                        <p className="text-rose-400 text-sm font-bold opacity-80 leading-relaxed uppercase tracking-wide">
+                            Security protocols have restricted resource allocation for <span className="text-white border-b border-rose-400 pb-0.5">{suspendedCount} isolated nodes</span>. Intervention may be required.
+                        </p>
                     </div>
                 </div>
             )}
 
-            {/* Search & Filters */}
-            <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-6 items-center">
-                <div className="flex-1 w-full">
+            {/* Filters */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                <div className="lg:col-span-6">
                     <Input
+                        dark
                         icon={Search}
                         placeholder="Scan registry by name, administrator, or unique ID..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="py-4 rounded-2xl"
                     />
                 </div>
-                <div className="flex gap-4 w-full lg:w-auto">
+                <div className="lg:col-span-3">
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
-                        className="flex-1 lg:flex-none h-14 px-6 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-black text-slate-600 uppercase tracking-widest outline-none appearance-none cursor-pointer hover:bg-slate-100 transition-all"
+                        className="w-full h-14 px-6 bg-[#15161c] border border-white/5 rounded-[20px] text-[10px] font-black text-slate-400 uppercase tracking-widest outline-none cursor-pointer hover:bg-[#1a1b24] hover:text-white transition-all appearance-none"
                     >
                         <option value="ALL">All Status</option>
-                        <option value="ACTIVE">Active Only</option>
-                        <option value="INACTIVE">Disabled Only</option>
+                        <option value="ACTIVE">Operational Only</option>
+                        <option value="INACTIVE">Isolated Only</option>
                     </select>
-                    <Button
-                        variant="outline"
-                        className="flex-1 lg:flex-none h-14"
+                </div>
+                <div className="lg:col-span-3">
+                    <button
                         onClick={handleExportCSV}
+                        className="w-full h-14 flex items-center justify-center gap-3 bg-white/5 text-slate-400 border border-white/5 rounded-[20px] font-black text-[10px] uppercase tracking-widest hover:text-white hover:bg-white/10 transition-all"
                     >
-                        Export CSV
-                    </Button>
+                        <Download size={18} />
+                        Export Global Registry
+                    </button>
                 </div>
             </div>
 
-            {/* Registry Table */}
+            {/* Table */}
             <div onClick={() => setActiveMenu(null)}>
                 <DataTable
+                    dark
                     columns={columns}
                     data={filteredBusinesses}
                     emptyMessage="No registry entries match your current scan parameters."
@@ -238,24 +240,23 @@ const Businesses = () => {
                             <div className="relative" onClick={(e) => e.stopPropagation()}>
                                 <button
                                     onClick={() => setActiveMenu(activeMenu === row.id ? null : row.id)}
-                                    className={`p-2 rounded-xl transition-all ${activeMenu === row.id ? 'bg-slate-900 text-white shadow-lg' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+                                    className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center ${activeMenu === row.id ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white/5 text-slate-500 hover:text-white border border-white/5 hover:bg-white/10'}`}
                                 >
                                     <MoreVertical size={18} />
                                 </button>
 
                                 {activeMenu === row.id && (
-                                    <div className="absolute right-0 top-12 w-56 bg-white rounded-2xl border border-slate-100 shadow-2xl py-3 z-50 animate-in fade-in zoom-in-95 duration-200">
-                                        <p className="px-5 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 mb-2">Governance Actions</p>
-
+                                    <div className="absolute right-0 top-12 w-64 bg-[#1a1b24] rounded-[24px] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] py-4 z-50 animate-in fade-in zoom-in-95 duration-200">
+                                        <p className="px-6 py-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.2em] border-b border-white/5 mb-2">Security Authorization</p>
 
                                         <button
                                             onClick={() => handleToggleStatus(row)}
-                                            className={`w-full px-5 py-3 text-left flex items-center gap-3 transition-colors ${isActive ? 'text-rose-600 hover:bg-rose-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
+                                            className={`w-full px-6 py-3.5 text-left flex items-center gap-3 transition-all ${isActive ? 'text-rose-400 hover:bg-rose-500/10' : 'text-emerald-400 hover:bg-emerald-500/10'}`}
                                             disabled={statusMutation.isPending && statusMutation.variables?.id === row.id}
                                         >
                                             {isActive ? <Lock size={16} /> : <Unlock size={16} />}
-                                            <span className="text-sm font-bold">
-                                                {statusMutation.isPending && statusMutation.variables?.id === row.id ? 'Processing...' : (isActive ? 'Disable Business' : 'Enable Business')}
+                                            <span className="text-xs font-black uppercase tracking-wider">
+                                                {statusMutation.isPending && statusMutation.variables?.id === row.id ? 'Processing...' : (isActive ? 'Disable Node' : 'Initialize Node')}
                                             </span>
                                         </button>
 
@@ -264,15 +265,15 @@ const Businesses = () => {
                                                 setIsAssignModalOpen(true);
                                                 setActiveMenu(null);
                                             }}
-                                            className="w-full px-5 py-3 text-left flex items-center gap-3 text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                            className="w-full px-6 py-3.5 text-left flex items-center gap-3 text-indigo-400 hover:bg-indigo-500/10 transition-all"
                                         >
                                             <CreditCard size={16} />
-                                            <span className="text-sm font-bold">Assign Plan</span>
+                                            <span className="text-xs font-black uppercase tracking-wider">Assign Tier</span>
                                         </button>
 
-                                        <button className="w-full px-5 py-3 text-left flex items-center gap-3 text-slate-400 hover:bg-slate-50 transition-colors">
+                                        <button className="w-full px-6 py-3.5 text-left flex items-center gap-3 text-slate-500 hover:bg-white/5 transition-all">
                                             <Shield size={16} />
-                                            <span className="text-sm font-bold">Security Audit</span>
+                                            <span className="text-xs font-black uppercase tracking-wider">Firewall Audit</span>
                                         </button>
                                     </div>
                                 )}

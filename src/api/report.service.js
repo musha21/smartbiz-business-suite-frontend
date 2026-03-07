@@ -27,12 +27,19 @@ export const reportService = {
     },
 
     // 3) Unpaid Invoices — pass year & month so the backend can filter by period
-    async getUnpaidInvoices(year, month) {
-        const response = await api.get('/reports/invoices/unpaid', {
-            params: { year, month }
-        });
+    // 3) Unpaid Invoices
+    async getUnpaidInvoices() {
+        // The user spec implies a general unpaid invoices fetch for the Email Center
+        const response = await api.get('/reports/invoices/unpaid');
         const result = response.data;
-        // Handle array or wrapped response
         return Array.isArray(result) ? result : (result?.data ?? result?.invoices ?? result?.items ?? []);
+    },
+
+    // 4) Analytics Dashboard (New Requirement)
+    async getAnalytics(from, to) {
+        const response = await api.get('/reports/analytics', {
+            params: { from, to }
+        });
+        return response.data;
     }
 };

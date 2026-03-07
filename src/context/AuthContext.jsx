@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { isTokenExpired } from '../utils/auth';
+import { profileService } from '../api/profile.service';
 
 const AuthContext = createContext(undefined);
 
@@ -7,32 +8,57 @@ export const AuthProvider = ({ children }) => {
     const [state, setState] = useState({
         user: null,
         business: null,
+        profile: null,
         token: null,
         isAuthenticated: false,
         isLoading: true,
+        hasProfile: false,
+        completionPercentage: 0,
     });
 
     useEffect(() => {
-        const initializeAuth = () => {
+        const calculateCompletion = (profile) => {
+            if (!profile) return 0;
+            const fields = [
+                'businessName', 'ownerName', 'email', 'phone', 'address',
+                'industry', 'country', 'currency', 'invoicePrefix',
+                'logo', 'brandTone', 'brandTagline', 'paymentTerms', 'brandColor'
+            ];
+            const filled = fields.filter(f => !!profile[f]);
+            return Math.round((filled.length / fields.length) * 100);
+        };
+
+        const initializeAuth = async () => {
             const token = localStorage.getItem('token');
             const storedUser = localStorage.getItem('user');
-            const storedBusiness = localStorage.getItem('business');
 
             if (token && storedUser) {
-                // Validate token expiration
                 if (isTokenExpired(token)) {
-                    console.log('Session expired. Logging out.');
                     logout();
                     return;
                 }
 
                 try {
+                    const user = JSON.parse(storedUser);
+
+                    // ✅ Safe profile fetch - won't crash if fails
+                    let profileData = null;
+                    try {
+                        profileData = await profileService.getProfile();
+                    } catch (_) { }
+
+                    const hasProfile = !!(profileData && profileData.businessName);
+                    const completion = profileData ? calculateCompletion(profileData) : 0;
+
                     setState({
                         token,
-                        user: JSON.parse(storedUser),
-                        business: storedBusiness ? JSON.parse(storedBusiness) : null,
+                        user,
+                        business: null,
+                        profile: profileData,
                         isAuthenticated: true,
                         isLoading: false,
+                        hasProfile,
+                        completionPercentage: completion,
                     });
                 } catch (e) {
                     console.error('Auth state corrupted:', e);
@@ -46,8 +72,7 @@ export const AuthProvider = ({ children }) => {
         initializeAuth();
     }, []);
 
-    const login = (data) => {
-        // Normalize user object — backend may return it as data.user, data.owner, or inline fields
+    const login = async (data) => {
         const userObj = data.user || data.owner || {
             username: data.username,
             name: data.name,
@@ -55,20 +80,40 @@ export const AuthProvider = ({ children }) => {
             email: data.email,
             role: data.role,
         };
-        const businessObj = data.business || null;
 
+        // ✅ Save to localStorage first (sync)
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(userObj));
-        if (businessObj) {
-            localStorage.setItem('business', JSON.stringify(businessObj));
-        }
+
+        // ✅ Safe profile fetch - won't crash login if API fails
+        let profileData = null;
+        try {
+            profileData = await profileService.getProfile();
+        } catch (_) { }
+
+        const hasProfile = !!(profileData && profileData.businessName);
+
+        // ✅ setState completes BEFORE navigate() runs in LoginPage
         setState({
             token: data.token,
             user: userObj,
-            business: businessObj,
+            profile: profileData,
             isAuthenticated: true,
             isLoading: false,
+            hasProfile,
+            completionPercentage: profileData ? 70 : 0,
         });
+
+        return { hasProfile };
+    };
+
+    const updateProfileState = (newProfile) => {
+        setState(prev => ({
+            ...prev,
+            profile: newProfile,
+            hasProfile: !!(newProfile && newProfile.businessName),
+            completionPercentage: newProfile ? 100 : 0,
+        }));
     };
 
     const logout = () => {
@@ -79,13 +124,16 @@ export const AuthProvider = ({ children }) => {
             token: null,
             user: null,
             business: null,
+            profile: null,
             isAuthenticated: false,
             isLoading: false,
+            hasProfile: false,
+            completionPercentage: 0,
         });
     };
 
     return (
-        <AuthContext.Provider value={{ ...state, login, logout }}>
+        <AuthContext.Provider value={{ ...state, login, logout, updateProfileState }}>
             {children}
         </AuthContext.Provider>
     );

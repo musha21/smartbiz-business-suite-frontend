@@ -1,10 +1,10 @@
 import api from './axios';
 
 export const invoiceService = {
-    // POST /invoices
     async createInvoice(data) {
         const response = await api.post('/invoices', data);
-        return response.data;
+        const result = response.data;
+        return (result && typeof result === 'object' && result?.success && result?.data) ? result.data : result;
     },
 
     // GET /invoices/{id}

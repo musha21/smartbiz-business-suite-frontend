@@ -20,22 +20,30 @@ import {
     Package,
     AlertTriangle,
     ArrowRight,
-    MoreHorizontal,
-    FilePlus2
+    Plus,
+    Activity,
+    Zap,
+    ChevronRight,
+    Sparkles
 } from 'lucide-react';
 import { dashboardService } from '../../api';
 import { useAuth } from '../../context/AuthContext';
-import { CircularProgress, Alert } from '@mui/material';
+import { useTheme } from '../../context/ThemeContext';
+import { CircularProgress } from '@mui/material';
 import { formatLKR } from '../../utils/formatters';
+
+const formatGrowth = (value, suffix = 'Today') => {
+    if (value == null || value === 0) return `0% ${suffix}`;
+    const sign = value > 0 ? '+' : '';
+    return `${sign}${Number(value).toFixed(1)}% ${suffix}`;
+};
 
 const OwnerDashboard = () => {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, profile, completionPercentage } = useAuth();
+    const { isDarkMode } = useTheme();
+    const displayName = profile?.businessName || user?.username || user?.name || user?.fullName || 'Owner';
 
-    // Build display name — backend stores it as 'username' or 'name'
-    const displayName = user?.username || user?.name || user?.fullName || 'Owner';
-
-    // 1. Fetch Data
     const { data, isLoading, error } = useQuery({
         queryKey: ['dashboard-summary'],
         queryFn: dashboardService.getSummary,
@@ -43,8 +51,8 @@ const OwnerDashboard = () => {
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <CircularProgress color="primary" />
+            <div className="flex items-center justify-center min-h-[500px]">
+                <CircularProgress sx={{ color: '#6366f1' }} />
             </div>
         );
     }
@@ -52,140 +60,156 @@ const OwnerDashboard = () => {
     if (error) {
         return (
             <div className="p-8">
-                <Alert severity="error">Failed to load dashboard metrics. Please check your connection.</Alert>
+                <div className={`border rounded-[2rem] px-8 py-6 font-black uppercase tracking-widest text-xs text-center shadow-2xl ${isDarkMode ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-rose-50 border-rose-100 text-rose-600'}`}>
+                    Service Error: Failed to load dashboard metrics.
+                </div>
             </div>
         );
     }
 
-    // 2. Prepare Data
-    // Ensure data properties exist or fallback to 0
     const chartData = [
         { name: 'Revenue', value: data?.monthRevenue ?? data?.monthlyRevenue ?? 0 },
         { name: 'Expenses', value: data?.monthExpenses ?? data?.monthlyExpenses ?? 0 },
         { name: 'Profit', value: data?.monthProfit ?? data?.monthlyProfit ?? 0 }
     ];
 
-    const lowStockCount = data?.lowStockCount ?? data?.lowStock ?? 0;
-    const pieData = [
-        { name: 'Stock', value: Math.max(0, 100 - lowStockCount), color: '#6366f1' },
-        { name: 'Low Stock', value: lowStockCount, color: '#f43f5e' }
-    ];
-
-
-    // Components
-    const StatCard = ({ title, value, icon, bgClass, iconClass }) => (
-        <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm flex flex-col justify-between h-40 relative overflow-hidden group hover:shadow-md transition-all">
-            <div className="flex justify-between items-start z-10">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${bgClass}`}>
-                    {icon}
+    const StatCard = ({ title, value, icon: Icon, color, trend }) => (
+        <div className={`border p-8 rounded-[32px] relative overflow-hidden ${isDarkMode ? 'bg-[#15161c] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+            <div className="flex justify-between items-start relative z-10">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${isDarkMode ? `bg-${color}-500/10 text-${color}-400` : `bg-${color}-100 text-${color}-600`}`}>
+                    <Icon size={24} />
                 </div>
-                <MoreHorizontal size={20} className="text-slate-300 cursor-pointer hover:text-slate-500" />
+                <div className="text-right">
+                    <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? `text-${color}-500/80` : `text-${color}-600`}`}>{trend}</p>
+                    <div className={`w-2 h-2 rounded-full shadow-[0_0_8px] float-right ${isDarkMode ? `bg-${color}-500 shadow-${color}-500/50` : `bg-${color}-600 shadow-${color}-600/50`}`} />
+                </div>
             </div>
-            <div className="z-10 mt-4">
-                <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">{title}</p>
-                <h3 className="text-2xl font-black text-slate-800">{value}</h3>
+            <div className="relative z-10 mt-8">
+                <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-2 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>{title}</p>
+                <h3 className={`text-3xl font-black italic uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{value}</h3>
             </div>
-            {/* Background Decor */}
-            <div className={`absolute -right-6 -bottom-6 w-24 h-24 rounded-full opacity-10 ${bgClass}`} />
         </div>
     );
 
-
     return (
-        <div className="space-y-8 pb-10">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-black text-slate-800 tracking-tight">Dashboard</h1>
-                    <p className="text-slate-500 mt-1 font-bold">
-                        Welcome back, <span className="text-indigo-600">{displayName}</span> 👋
+        <div className="space-y-10 pb-20">
+            {/* Header Section */}
+            <div className={`flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b ${isDarkMode ? 'border-white/5' : 'border-slate-200'}`}>
+                <div className="space-y-2">
+                    <h1 className={`text-5xl font-black tracking-tighter italic uppercase leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        Business Overview
+                    </h1>
+                    <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                        Welcome back, <span className="text-indigo-500">{displayName}</span> — {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
                     </p>
                 </div>
                 <button
                     onClick={() => navigate('/invoices/new')}
-                    className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 active:scale-95 text-white font-bold px-6 py-3 rounded-2xl shadow-lg shadow-violet-200 transition-all w-fit"
+                    className="flex items-center gap-3 bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-50 shadow-lg shadow-indigo-600/20"
                 >
-                    <FilePlus2 size={20} />
-                    Create Invoice
+                    <Plus size={18} />
+                    <span>Create Invoice</span>
                 </button>
             </div>
 
-            {/* Top Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Profile Completion Call to Action */}
+            {completionPercentage < 100 && (
+                <div className={`p-8 rounded-[40px] border relative overflow-hidden group transition-all duration-500 hover:scale-[1.01] ${isDarkMode ? 'bg-indigo-600/10 border-indigo-500/30' : 'bg-indigo-50 border-indigo-100'}`}>
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                        <div className="flex items-center gap-5">
+                            <div className="w-16 h-16 bg-indigo-600 rounded-3xl flex items-center justify-center text-white shadow-xl shadow-indigo-600/20 animate-pulse">
+                                <Sparkles size={28} />
+                            </div>
+                            <div>
+                                <h3 className={`text-xl font-black italic uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Complete Your Business Profile</h3>
+                                <p className={`text-xs font-bold mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Your profile is <span className="text-indigo-500">{completionPercentage}%</span> complete. Unlock advanced AI features by filling in all details.</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="hidden md:block w-48 h-2 bg-black/10 rounded-full overflow-hidden">
+                                <div className="h-full bg-indigo-600 rounded-full transition-all duration-1000" style={{ width: `${completionPercentage}%` }} />
+                            </div>
+                            <button
+                                onClick={() => navigate('/profile')}
+                                className="bg-white text-indigo-900 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-100 transition-all shadow-lg active:scale-95"
+                            >
+                                Finish Setup
+                            </button>
+                        </div>
+                    </div>
+                    <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl" />
+                </div>
+            )}
+
+            {/* Top Metrics Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <StatCard
-                    title="Today Revenue"
-                    value={formatLKR(data?.todayRevenue ?? data?.dailyRevenue ?? 0)}
-                    icon={<TrendingUp size={24} className="text-indigo-600" />}
-                    bgClass="bg-indigo-50"
+                    title="Today's Revenue"
+                    value={formatLKR(data?.todayRevenue ?? 0)}
+                    icon={TrendingUp}
+                    color="indigo"
+                    trend={formatGrowth(data?.todayGrowthPercent)}
                 />
                 <StatCard
-                    title="Today Expenses"
-                    value={formatLKR(data?.todayExpenses ?? data?.dailyExpenses ?? 0)}
-                    icon={<TrendingDown size={24} className="text-rose-600" />}
-                    bgClass="bg-rose-50"
+                    title="Today's Expenses"
+                    value={formatLKR(data?.todayExpenses ?? 0)}
+                    icon={TrendingDown}
+                    color="rose"
+                    trend={formatGrowth(data?.todayExpenseChangePercent)}
                 />
                 <StatCard
-                    title="Today Profit"
-                    value={formatLKR(data?.todayProfit ?? data?.dailyProfit ?? 0)}
-                    icon={<DollarSign size={24} className="text-emerald-600" />}
-                    bgClass="bg-emerald-50"
+                    title="Net Profit"
+                    value={formatLKR(data?.todayProfit ?? 0)}
+                    icon={DollarSign}
+                    color="emerald"
+                    trend={data?.profitStatus || 'N/A'}
                 />
             </div>
 
-            {/* Middle Section: Banner + Chart */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Gradient Banner Card - Replicating the "Reach financial goals" card */}
-                <div className="lg:col-span-1 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-[32px] p-8 text-white shadow-xl shadow-indigo-200 relative overflow-hidden flex flex-col justify-between min-h-[300px]">
-                    <div className="relative z-10">
-                        <h2 className="text-2xl font-black mb-2 leading-tight">Monthly<br />Revenue Goal</h2>
-                        <p className="text-indigo-100 font-medium text-sm mb-6 opacity-90">Keep pushing to reach your monthly targets. You are doing great!</p>
-
-                        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 mb-6">
-                            <p className="text-xs font-bold text-indigo-200 uppercase mb-1">Current Month</p>
-                            <p className="text-2xl font-black text-white">{formatLKR(data?.monthRevenue || 0)}</p>
-                        </div>
-                    </div>
-
-                    <button className="bg-white text-indigo-600 px-6 py-3 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors w-fit shadow-lg z-10 flex items-center gap-2">
-                        View Details <ArrowRight size={16} />
-                    </button>
-
-                    {/* Decor Circles */}
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
-                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl" />
-                </div>
-
-                {/* Monthly Chart Card - Replicating "Average Weekly Savings" style */}
-                <div className="lg:col-span-2 bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm flex flex-col">
-                    <div className="flex items-center justify-between mb-2">
+            {/* Main Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Analytics Chart */}
+                <div className={`lg:col-span-8 border p-8 rounded-[40px] relative overflow-hidden ${isDarkMode ? 'bg-[#15161c] border-white/5' : 'bg-white border-slate-200'}`}>
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10 relative z-10">
                         <div>
-                            <p className="text-slate-500 font-bold uppercase tracking-wider text-xs">Analytics</p>
-                            <h3 className="text-xl font-black text-slate-800">Monthly Performance</h3>
+                            <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-2 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Performance Analysis</p>
+                            <h3 className={`text-2xl font-black italic uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Monthly Sales</h3>
                         </div>
-                        <h3 className="text-2xl font-black text-slate-800">{formatLKR(data?.monthProfit || 0)}</h3>
+                        <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                                <span className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Total Revenue</span>
+                            </div>
+                            <h3 className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-indigo-600'}`}>{formatLKR(data?.monthRevenue || 0)}</h3>
+                        </div>
                     </div>
 
-                    <div className="flex-1 w-full min-h-[250px] relative">
+                    <div className="h-[350px] w-full relative z-10">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={chartData}>
                                 <defs>
-                                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} />
                                         <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.05)"} />
                                 <XAxis
                                     dataKey="name"
                                     axisLine={false}
                                     tickLine={false}
-                                    tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 'bold' }}
-                                    dy={10}
+                                    tick={{ fill: isDarkMode ? '#475569' : '#94a3b8', fontSize: 10, fontWeight: '700' }}
+                                    dy={15}
                                 />
                                 <YAxis hide />
                                 <Tooltip
-                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                                    cursor={{ stroke: '#6366f1', strokeWidth: 1, strokeDasharray: '4 4' }}
+                                    contentStyle={{
+                                        backgroundColor: isDarkMode ? '#1a1b24' : '#fff',
+                                        borderRadius: '16px',
+                                        border: isDarkMode ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)',
+                                    }}
+                                    itemStyle={{ color: isDarkMode ? '#fff' : '#1e293b', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase' }}
+                                    cursor={{ stroke: '#6366f1', strokeWidth: 1 }}
                                 />
                                 <Area
                                     type="monotone"
@@ -193,95 +217,161 @@ const OwnerDashboard = () => {
                                     stroke="#6366f1"
                                     strokeWidth={4}
                                     fillOpacity={1}
-                                    fill="url(#colorValue)"
+                                    fill="url(#colorRevenue)"
+                                    animationDuration={0}
                                 />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
+
+                {/* Status Cards */}
+                <div className="lg:col-span-4 space-y-8">
+                    {/* Goal Card */}
+                    <div className="bg-gradient-to-br from-indigo-600 to-violet-800 rounded-[40px] p-8 text-white shadow-lg shadow-indigo-600/20 relative overflow-hidden flex flex-col justify-between min-h-[300px]">
+                        <div className="relative z-10">
+                            <h2 className="text-3xl font-black mb-2 leading-none italic uppercase tracking-tighter">Business<br />Growth</h2>
+                            <p className="text-indigo-200 font-bold text-[10px] uppercase tracking-widest mt-4 opacity-80 leading-relaxed">Inventory levels and sales performance are currently at optimal levels.</p>
+                        </div>
+
+                        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/10 relative z-10">
+                            <p className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-1.5">Monthly Sales</p>
+                            <p className="text-3xl font-black text-white">{formatLKR(data?.monthRevenue || 0)}</p>
+                        </div>
+
+                        <button
+                            onClick={() => navigate('/reports')}
+                            className="bg-white text-indigo-900 px-6 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-50 w-full z-10 flex items-center justify-center gap-2"
+                        >
+                            View Full Report <ArrowRight size={14} />
+                        </button>
+                    </div>
+
+                    {/* Stock Warning Card */}
+                    <div className={`border p-8 rounded-[40px] relative overflow-hidden ${isDarkMode ? 'bg-[#15161c] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        <div className="flex items-center justify-between mb-8">
+                            <div className="w-12 h-12 bg-rose-500/10 text-rose-500 rounded-2xl flex items-center justify-center">
+                                <Zap size={20} />
+                            </div>
+                            <span className="bg-rose-500/10 text-rose-500 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest border border-rose-500/20">
+                                {data?.lowStockCount || 0} Low Stock
+                            </span>
+                        </div>
+                        <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-2 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Inventory Alerts</p>
+                        <h3 className={`text-xl font-black italic uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Stock Warnings</h3>
+
+                        <div className={`mt-6 p-4 border rounded-2xl flex items-center justify-between cursor-pointer ${isDarkMode ? 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04]' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 shadow-sm'}`} onClick={() => navigate('/products')}>
+                            <div className="flex items-center gap-3">
+                                <Package size={16} className="text-rose-500" />
+                                <span className={`text-[11px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>View low stock items</span>
+                            </div>
+                            <ChevronRight size={14} className="text-slate-400" />
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            {/* Bottom Row - Lists & Status */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Unpaid Invoices List (Mocked visually as list) */}
-                <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="font-black text-slate-800 text-lg">Pending Invoices</h3>
-                        <span className="bg-amber-50 text-amber-600 px-3 py-1 rounded-full text-xs font-bold">{data?.unpaidInvoicesCount || 0} Open</span>
+            {/* Bottom Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Pending Invoices */}
+                <div className={`border p-8 rounded-[40px] ${isDarkMode ? 'bg-[#15161c] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                    <div className="flex items-center justify-between mb-8">
+                        <div>
+                            <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Financials</p>
+                            <h3 className={`text-xl font-black italic uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Pending Invoices</h3>
+                        </div>
+                        <div className="w-12 h-12 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center">
+                            <Activity size={20} />
+                        </div>
                     </div>
                     <div className="space-y-4">
-                        {/* Visual Placeholder for list items */}
-                        <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors cursor-pointer">
-                            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600">
+                        <div className={`flex items-center gap-4 p-5 rounded-[24px] border cursor-pointer ${isDarkMode ? 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04]' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 shadow-sm'}`} onClick={() => navigate('/invoices')}>
+                            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
                                 <AlertTriangle size={18} />
                             </div>
-                            <div>
-                                <p className="font-bold text-slate-800 text-sm">Action Needed</p>
-                                <p className="text-xs text-slate-500 font-medium">Review unpaid invoices</p>
+                            <div className="flex-1">
+                                <p className={`font-black text-xs uppercase tracking-wide leading-none mb-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Payment Required</p>
+                                <p className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-600' : 'text-slate-500'}`}>{data?.unpaidInvoicesCount || 0} Unpaid Invoices</p>
                             </div>
-                            <span className="ml-auto bg-white shadow-sm px-3 py-1 rounded-lg text-xs font-bold text-indigo-600">View</span>
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-white/5 text-slate-600' : 'bg-white border border-slate-200 text-slate-400'}`}>
+                                <ChevronRight size={14} />
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Low Stock List */}
-                <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="font-black text-slate-800 text-lg">Inventory Status</h3>
-                        <span className="bg-rose-50 text-rose-600 px-3 py-1 rounded-full text-xs font-bold">{data?.lowStockCount || 0} Low</span>
+                {/* Quick Insights Card */}
+                <div className={`border p-8 rounded-[40px] relative overflow-hidden ${isDarkMode ? 'bg-[#15161c] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                    <div className="flex items-center justify-between mb-8 relative z-10">
+                        <div>
+                            <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Overview</p>
+                            <h3 className={`text-xl font-black italic uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Quick Insights</h3>
+                        </div>
+                        <div className="w-12 h-12 bg-indigo-500/10 text-indigo-500 rounded-2xl flex items-center justify-center">
+                            <Activity size={20} />
+                        </div>
                     </div>
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors cursor-pointer">
-                            <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600">
-                                <Package size={18} />
+                    <div className="space-y-4 relative z-10">
+                        <div className={`flex items-center justify-between p-4 border rounded-2xl ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                            <div className="flex items-center gap-3">
+                                <Package size={16} className="text-rose-500" />
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>Low Stock Items</span>
                             </div>
-                            <div>
-                                <p className="font-bold text-slate-800 text-sm">Restock Required</p>
-                                <p className="text-xs text-slate-500 font-medium">Items running low</p>
+                            <span className={`text-lg font-black italic ${isDarkMode ? 'text-rose-400' : 'text-rose-600'}`}>{data?.lowStockCount ?? 0}</span>
+                        </div>
+                        <div className={`flex items-center justify-between p-4 border rounded-2xl ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                            <div className="flex items-center gap-3">
+                                <AlertTriangle size={16} className="text-amber-500" />
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>Unpaid Invoices</span>
                             </div>
-                            <span className="ml-auto bg-white shadow-sm px-3 py-1 rounded-lg text-xs font-bold text-indigo-600">Stock</span>
+                            <span className={`text-lg font-black italic ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>{data?.unpaidInvoicesCount ?? 0}</span>
+                        </div>
+                        <div className={`flex items-center justify-between p-4 border rounded-2xl ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                            <div className="flex items-center gap-3">
+                                <DollarSign size={16} className="text-emerald-500" />
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>Monthly Revenue</span>
+                            </div>
+                            <span className={`text-lg font-black italic ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>{formatLKR(data?.monthRevenue ?? 0)}</span>
                         </div>
                     </div>
                 </div>
 
-                {/* Dark Summary Card - Replicating "Plan for 2021" */}
-                <div className="bg-slate-900 p-8 rounded-[32px] text-white relative overflow-hidden shadow-xl shadow-slate-200 flex flex-col justify-center items-center text-center">
-                    <div className="relative z-10 w-full h-full flex flex-col items-center justify-center">
-                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-4">Net Profit Margin</p>
+                {/* Efficiency / Pie Section */}
+                <div className={`border p-8 rounded-[40px] flex flex-col items-center text-center ${isDarkMode ? 'bg-[#15161c] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                    <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Financial Health</p>
+                    <h3 className={`text-xl font-black italic uppercase tracking-tight mb-8 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Profit Margin</h3>
 
-                        {/* Simple Donut Chart Representation */}
-                        <div className="w-32 h-32 relative mb-4">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={[{ value: (data?.monthProfit > 0 ? 75 : 0) }, { value: 25 }]}
-                                        innerRadius={40}
-                                        outerRadius={55}
-                                        startAngle={90}
-                                        endAngle={-270}
-                                        dataKey="value"
-                                        stroke="none"
-                                        cornerRadius={10}
-                                    >
-                                        <Cell fill="#818cf8" />
-                                        <Cell fill="#334155" />
-                                    </Pie>
-                                </PieChart>
-                            </ResponsiveContainer>
-                            <div className="absolute inset-0 flex items-center justify-center flex-col">
-                                <span className="font-black text-2xl text-white">Good</span>
-                            </div>
+                    <div className="w-40 h-40 relative">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={[{ value: Math.max(0, data?.profitMarginPercent ?? 0) }, { value: Math.max(0, 100 - (data?.profitMarginPercent ?? 0)) }]}
+                                    innerRadius={50}
+                                    outerRadius={70}
+                                    startAngle={90}
+                                    endAngle={-270}
+                                    dataKey="value"
+                                    stroke="none"
+                                    cornerRadius={12}
+                                    paddingAngle={5}
+                                >
+                                    <Cell fill="#6366f1" />
+                                    <Cell fill={isDarkMode ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.05)"} />
+                                </Pie>
+                            </PieChart>
+                        </ResponsiveContainer>
+                        <div className="absolute inset-0 flex items-center justify-center flex-col">
+                            <span className={`font-black text-2xl italic ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{Math.round(data?.profitMarginPercent ?? 0)}%</span>
+                            <span className={`text-[9px] font-black uppercase tracking-widest mt-1 ${isDarkMode ? 'text-slate-700' : 'text-slate-400'}`}>{data?.profitStatus || 'N/A'}</span>
                         </div>
-
-                        <p className="text-sm text-slate-400 font-medium">Keep up the good work!</p>
                     </div>
 
-                    {/* Background Glows */}
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500 rounded-full blur-[60px] opacity-20"></div>
-                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500 rounded-full blur-[60px] opacity-20"></div>
+                    <p className={`text-[10px] font-bold uppercase tracking-widest mt-6 ${isDarkMode ? 'text-slate-600' : 'text-slate-500'}`}>
+                        {(data?.profitMarginPercent ?? 0) >= 20 ? 'Your business is performing well' : (data?.profitMarginPercent ?? 0) >= 10 ? 'Business needs attention' : 'Critical: Review your margins'}
+                    </p>
                 </div>
             </div>
-        </div >
+        </div>
     );
 };
 

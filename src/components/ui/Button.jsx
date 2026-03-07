@@ -28,7 +28,7 @@ const Button = ({
         <button
             disabled={disabled || loading}
             className={`
-                flex items-center justify-center gap-2 rounded-2xl font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
+                flex items-center justify-center gap-2 rounded-2xl font-black uppercase tracking-widest transition-colors disabled:opacity-50 disabled:cursor-not-allowed
                 ${variants[variant]} 
                 ${sizes[size]} 
                 ${className}

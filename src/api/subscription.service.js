@@ -44,8 +44,13 @@ export const subscriptionService = {
         return (res?.success && res?.data) ? res.data : res;
     },
 
-    async fetchMySubscription(businessId) {
-        const res = (await api.get(`/subscriptions/my`, { params: { businessId } })).data;
+    async fetchMyPlan() {
+        const res = (await api.get('/owner/my-plan')).data;
+        return (res?.success && res?.data) ? res.data : res;
+    },
+
+    async getUsageCounters() {
+        const res = (await api.get('/owner/usage')).data;
         return (res?.success && res?.data) ? res.data : res;
     }
 };

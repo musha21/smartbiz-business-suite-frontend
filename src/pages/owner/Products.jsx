@@ -9,33 +9,21 @@ import {
     Package,
     AlertTriangle,
     PlusCircle,
-    X,
     Archive,
     RefreshCcw,
-    ArchiveX
+    ArchiveX,
+    Zap,
+    Box as BoxIcon,
+    ChevronDown,
+    ArrowRight,
+    TrendingUp,
+    ShieldCheck
 } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Paper,
     IconButton,
-    Menu,
-    MenuItem,
-    Chip,
     CircularProgress,
-    TextField,
-    Button,
-    Select,
-    FormControl,
-    InputLabel,
-    FormHelperText,
-    Typography,
-    Box,
-    InputAdornment,
+    Tooltip,
     Tabs,
     Tab
 } from '@mui/material';
@@ -43,10 +31,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { toast } from 'react-toastify';
+import { useErpKeyboardForm } from '../../hooks/useErpKeyboardForm';
 import { productService, categoryService, supplierService } from '../../api';
-import Modal from '../../components/ui/Modal';
 import { formatLKR } from '../../utils/formatters';
+
+// UI Components
+import Modal from '../../components/ui/Modal';
+import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
+import DataTable from '../../components/ui/DataTable';
+import Badge from '../../components/ui/Badge';
 
 // Validation Schemas
 const productSchema = z.object({
@@ -63,6 +57,7 @@ const categorySchema = z.object({
 
 const Products = () => {
     const queryClient = useQueryClient();
+    const { isDarkMode } = useTheme();
     const [anchorEl, setAnchorEl] = useState(null);
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -73,14 +68,20 @@ const Products = () => {
     const [searchInput, setSearchInput] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [stockFilter, setStockFilter] = useState('All');
-    const [filterAnchorEl, setFilterAnchorEl] = useState(null);
+    const [activeMenu, setActiveMenu] = useState(null);
     const [viewMode, setViewMode] = useState('active'); // 'active' or 'archived'
+
+    const productFormRef = React.useRef(null);
+    const categoryFormRef = React.useRef(null);
+
+    const { onKeyDown: onProductKeyDown } = useErpKeyboardForm(productFormRef, { autoFocus: true });
+    const { onKeyDown: onCategoryKeyDown } = useErpKeyboardForm(categoryFormRef, { autoFocus: true });
 
     // Debounce search search term
     React.useEffect(() => {
         const handler = setTimeout(() => {
             setSearchTerm(searchInput);
-        }, 400); // 400ms delay
+        }, 400);
 
         return () => clearTimeout(handler);
     }, [searchInput]);
@@ -135,20 +136,18 @@ const Products = () => {
         mutationFn: (data) => productService.createProduct(data),
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
-            toast.success(data?.message || 'Product created successfully');
             handleCloseProductModal();
         },
-        onError: (err) => toast.error(err.response?.data?.message || 'Failed to create product')
+        onError: (err) => { /* Handled globally */ }
     });
 
     const updateProductMutation = useMutation({
         mutationFn: ({ id, data }) => productService.updateProduct(id, data),
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['products', viewMode] });
-            toast.success(data?.message || 'Product updated successfully');
             handleCloseProductModal();
         },
-        onError: (err) => toast.error(err.response?.data?.message || 'Failed to update product')
+        onError: (err) => { /* Handled globally */ }
     });
 
     const deleteProductMutation = useMutation({
@@ -156,12 +155,11 @@ const Products = () => {
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
             queryClient.invalidateQueries({ queryKey: ['products', 'archived'] });
-            toast.success(data?.message || 'Product deleted');
             setIsDeleteModalOpen(false);
-            setAnchorEl(null);
+            setActiveMenu(null);
             setSelectedProduct(null);
         },
-        onError: (err) => toast.error(err.response?.data?.message || 'Failed to delete product')
+        onError: (err) => { /* Handled globally */ }
     });
 
     const restoreProductMutation = useMutation({
@@ -169,11 +167,10 @@ const Products = () => {
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
             queryClient.invalidateQueries({ queryKey: ['products', 'archived'] });
-            toast.success(data?.message || 'Product restored');
-            setAnchorEl(null);
+            setActiveMenu(null);
             setSelectedProduct(null);
         },
-        onError: (err) => toast.error(err.response?.data?.message || 'Failed to restore product')
+        onError: (err) => { /* Handled globally */ }
     });
 
     const createCategoryMutation = useMutation({
@@ -182,11 +179,10 @@ const Products = () => {
             queryClient.invalidateQueries({ queryKey: ['categories'] }).then(() => {
                 setValue('categoryId', data?.id?.toString());
             });
-            toast.success(data?.message || 'Category created');
             setIsCategoryModalOpen(false);
             resetCat();
         },
-        onError: (err) => toast.error(err.response?.data?.message || 'Failed to create category')
+        onError: (err) => { /* Handled globally */ }
     });
 
     // Filtering
@@ -205,13 +201,6 @@ const Products = () => {
     }, [products, searchTerm, stockFilter]);
 
     // Handlers
-    const handleMenuClick = (event, product) => {
-        setAnchorEl(event.currentTarget);
-        setSelectedProduct(product);
-    };
-
-    const handleMenuClose = () => setAnchorEl(null);
-
     const handleOpenProductModal = (product = null) => {
         if (product) {
             setIsEditMode(true);
@@ -234,7 +223,7 @@ const Products = () => {
             });
         }
         setIsProductModalOpen(true);
-        handleMenuClose();
+        setActiveMenu(null);
     };
 
     const handleCloseProductModal = () => {
@@ -260,317 +249,317 @@ const Products = () => {
         }
     };
 
+    const columns = [
+        {
+            key: 'sku',
+            label: 'SKU',
+            render: (val) => <span className={`font-mono font-bold text-[10px] border px-2 py-1 rounded-lg ${isDarkMode ? 'text-indigo-400 bg-white/5 border-white/10' : 'text-indigo-600 bg-indigo-50 border-indigo-100'}`}>#{val}</span>
+        },
+        {
+            key: 'name',
+            label: 'Product',
+            render: (val, row) => (
+                <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm shrink-0 group-hover:scale-110 transition-transform ${isDarkMode ? 'bg-white/5 border border-white/5 text-indigo-500' : 'bg-slate-50 border border-slate-100 text-indigo-600'}`}>
+                        <Package size={18} />
+                    </div>
+                    <div>
+                        <p className={`font-black tracking-tight leading-tight ${viewMode === 'archived' ? 'text-slate-600 italic' : (isDarkMode ? 'text-white' : 'text-slate-900')}`}>{val}</p>
+                        <p className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>{row.categoryName || 'General'}</p>
+                    </div>
+                </div>
+            )
+        },
+        {
+            key: 'price',
+            label: 'Price',
+            render: (val) => <span className={`font-bold text-sm tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{formatLKR(val)}</span>
+        },
+        {
+            key: 'availableStock',
+            label: 'Stock Quantity',
+            render: (val, row) => {
+                const isLowStock = val <= row.lowStockLimit;
+                return (
+                    <div className="flex flex-col items-start gap-1.5">
+                        <div className="flex items-center gap-2">
+                            <span className={`text-xs font-black uppercase tracking-widest ${isLowStock ? 'text-rose-500' : 'text-emerald-500'}`}>{val} units</span>
+                            <div className={`w-1.5 h-1.5 rounded-full ${isLowStock ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]' : 'bg-emerald-500'}`} />
+                        </div>
+                        {isLowStock && viewMode === 'active' && (
+                            <div className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest border border-rose-500/20 ${isDarkMode ? 'bg-rose-500/10 text-rose-500' : 'bg-rose-50 text-rose-600'}`}>
+                                Low Stock
+                            </div>
+                        )}
+                    </div>
+                );
+            }
+        }
+    ];
+
     if (isLoadingProducts) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-                <CircularProgress color="primary" />
-                <Typography className="text-slate-500 font-medium animate-pulse">Loading products...</Typography>
+            <div className="flex flex-col items-center justify-center min-h-[500px] gap-6">
+                <CircularProgress sx={{ color: '#6366f1' }} />
+                <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Loading inventory...</p>
             </div>
         );
     }
 
     if (isError) {
         return (
-            <Box className="flex flex-col items-center justify-center min-h-[400px] gap-4 p-8 bg-rose-50 rounded-3xl border border-rose-100 italic">
-                <AlertTriangle size={48} className="text-rose-500" />
-                <Typography className="text-rose-700 font-bold text-xl text-center">
-                    Oops! Failed to load products.
-                </Typography>
-                <Typography className="text-rose-600 text-center max-w-md">
-                    {error?.response?.data?.message || error?.message || "There was an error connecting to the server. Please check your connection and try again."}
-                </Typography>
-                <Button
-                    variant="contained"
-                    onClick={() => queryClient.invalidateQueries({ queryKey: ['products'] })}
-                    className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl px-8 py-2 mt-4 shadow-lg shadow-rose-100"
-                >
-                    Retry Loading
-                </Button>
-            </Box>
+            <div className="p-8">
+                <div className={`border rounded-[32px] p-12 flex flex-col items-center text-center gap-6 ${isDarkMode ? 'bg-rose-500/5 border-rose-500/10' : 'bg-rose-50 border-rose-100'}`}>
+                    <div className="w-20 h-20 bg-rose-500 text-white rounded-[24px] flex items-center justify-center shadow-rose-500/20">
+                        <AlertTriangle size={40} />
+                    </div>
+                    <div className="space-y-2">
+                        <h3 className={`text-2xl font-black uppercase italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Failed to load inventory</h3>
+                        <p className={`text-sm font-bold uppercase tracking-widest max-w-md mx-auto leading-relaxed ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                            {error?.response?.data?.message || "There was an error connecting to the inventory service."}
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => queryClient.invalidateQueries({ queryKey: ['products'] })}
+                        className={`px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border ${isDarkMode ? 'bg-white/5 text-rose-400 border-rose-500/20 hover:bg-rose-500 hover:text-white' : 'bg-white text-rose-600 border-rose-200 hover:bg-rose-600 hover:text-white shadow-sm'}`}
+                    >
+                        Try Again
+                    </button>
+                </div>
+            </div>
         );
     }
 
     return (
-        <div className="space-y-8">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Product Management</h1>
-                    <p className="text-slate-500 mt-1">Manage your inventory, pricing and stock levels.</p>
+        <div className="space-y-10 pb-20">
+            {/* Header */}
+            <div className={`flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b ${isDarkMode ? 'border-white/5' : 'border-slate-200'}`}>
+                <div className="space-y-2">
+                    <h1 className={`text-5xl font-black tracking-tighter italic uppercase leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        Inventory
+                    </h1>
+                    <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Manage your products and stock levels</p>
                 </div>
+                <div className="flex gap-4">
+                    <button className={`flex items-center gap-2.5 px-6 py-3.5 rounded-2xl font-black text-[11px] uppercase tracking-widest border group ${isDarkMode ? 'bg-white/5 text-slate-400 border-white/5 hover:text-white' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-indigo-600'}`}>
+                        <TrendingUp size={18} />
+                        <span>Audit Log</span>
+                    </button>
+                    <button
+                        onClick={() => handleOpenProductModal()}
+                        className="flex items-center gap-2.5 bg-indigo-600 text-white px-8 py-3.5 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-indigo-500 shadow-lg shadow-indigo-600/20"
+                    >
+                        <Plus size={20} />
+                        <span>Add Product</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* View Mode Tabs */}
+            <div className={`flex items-center gap-8 border-b ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
                 <button
-                    onClick={() => handleOpenProductModal()}
-                    className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 active:scale-95"
+                    onClick={() => setViewMode('active')}
+                    className={`pb-4 text-[10px] font-black uppercase tracking-[0.2em] relative ${viewMode === 'active' ? 'text-indigo-600' : (isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600')}`}
                 >
-                    <Plus size={20} />
-                    <span>Add New Product</span>
+                    Active Products
+                    {viewMode === 'active' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full" />}
+                </button>
+                <button
+                    onClick={() => setViewMode('archived')}
+                    className={`pb-4 text-[10px] font-black uppercase tracking-[0.2em] relative ${viewMode === 'archived' ? 'text-rose-500' : (isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600')}`}
+                >
+                    Archived
+                    {viewMode === 'archived' && <div className="absolute bottom-0 left-0 w-full h-1 bg-rose-500 rounded-full" />}
                 </button>
             </div>
 
-            <div className="border-b border-slate-100">
-                <Tabs
-                    value={viewMode}
-                    onChange={(_, val) => setViewMode(val)}
-                    sx={{
-                        '& .MuiTabs-indicator': { height: 3, borderRadius: '3px 3px 0 0' },
-                        '& .MuiTab-root': { fontWeight: 600, fontSize: '0.9rem', textTransform: 'none', minWidth: 120 }
-                    }}
-                >
-                    <Tab
-                        icon={<Package size={18} />}
-                        iconPosition="start"
-                        label="Active Products"
-                        value="active"
-                    />
-                    <Tab
-                        iconPosition="start"
-                        icon={<Archive size={18} />}
-                        label="Archived"
-                        value="archived"
-                    />
-                </Tabs>
-            </div>
-
-            <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4">
-                <div className="relative flex-1">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            {/* Controls */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                <div className="lg:col-span-9 relative group">
+                    <Search className={`absolute left-5 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-600 group-focus-within:text-indigo-500' : 'text-slate-400 group-focus-within:text-indigo-600'}`} size={20} />
                     <input
                         type="text"
-                        placeholder="Search by SKU or Product Name..."
+                        placeholder="Search for products by name..."
                         value={searchInput}
                         onChange={(e) => setSearchInput(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                        className={`w-full pl-14 pr-6 py-4 border rounded-[22px] text-sm font-bold outline-none ${isDarkMode ? 'bg-[#15161c] border-white/5 text-white placeholder:text-slate-700 focus:ring-1 focus:ring-indigo-500/50 focus:bg-[#1a1b24]' : 'bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:ring-1 focus:ring-indigo-500/30 focus:bg-slate-50'}`}
                     />
                 </div>
-                <div className="flex gap-3">
-                    <button
-                        onClick={(e) => setFilterAnchorEl(e.currentTarget)}
-                        className={`flex items-center gap-2 border px-5 py-3 rounded-2xl text-sm font-semibold transition-all ${stockFilter !== 'All' ? 'bg-rose-50 border-rose-200 text-rose-600' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                    >
-                        <Filter size={18} />
-                        {stockFilter === 'All' ? 'Filter' : stockFilter}
-                    </button>
-                    <Menu
-                        anchorEl={filterAnchorEl}
-                        open={Boolean(filterAnchorEl)}
-                        onClose={() => setFilterAnchorEl(null)}
-                        PaperProps={{ sx: { borderRadius: '16px', mt: 1, border: '1px solid #f1f5f9' } }}
-                    >
-                        <MenuItem onClick={() => { setStockFilter('All'); setFilterAnchorEl(null); }} className="text-sm font-semibold py-2 px-6">All Products</MenuItem>
-                        <MenuItem onClick={() => { setStockFilter('Low Stock'); setFilterAnchorEl(null); }} className="text-sm font-semibold py-2 px-6 text-rose-600">Low Stock Only</MenuItem>
-                    </Menu>
+                <div className="lg:col-span-3">
+                    <div className="relative group">
+                        <select
+                            value={stockFilter}
+                            onChange={(e) => setStockFilter(e.target.value)}
+                            className={`w-full h-14 px-6 border rounded-[22px] text-[10px] font-black uppercase tracking-widest outline-none cursor-pointer appearance-none ${isDarkMode ? 'bg-[#15161c] border-white/5 text-slate-400 hover:bg-[#1a1b24] hover:text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-900 shadow-sm'}`}
+                        >
+                            <option value="All">All Products</option>
+                            <option value="Low Stock">Low Stock Only</option>
+                        </select>
+                        <ChevronDown className={`absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`} size={16} />
+                    </div>
                 </div>
             </div>
 
-            <TableContainer component={Paper} elevation={0} className="border border-slate-100 overflow-hidden shadow-sm" sx={{ borderRadius: '24px' }}>
-                <Table>
-                    <TableHead className="bg-slate-50">
-                        <TableRow>
-                            <TableCell className="font-bold text-slate-500 border-none px-8 py-5">SKU</TableCell>
-                            <TableCell className="font-bold text-slate-500 border-none px-8 py-5">Product Name</TableCell>
-                            <TableCell className="font-bold text-slate-500 border-none px-8 py-5">Category</TableCell>
-                            <TableCell className="font-bold text-slate-500 border-none px-8 py-5">Price</TableCell>
-                            <TableCell className="font-bold text-slate-500 border-none px-8 py-5 text-center">Available Stock</TableCell>
-                            <TableCell className="font-bold text-slate-500 border-none px-8 py-5 text-center">Low Stock Limit</TableCell>
-                            <TableCell className="font-bold text-slate-500 border-none px-8 py-5 text-right">Actions</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {filteredProducts.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={7} className="border-none py-20 text-center">
-                                    <div className="flex flex-col items-center gap-2 text-slate-400">
-                                        <Package size={48} className="opacity-20 mb-2" />
-                                        <Typography className="font-bold text-lg">No products found</Typography>
-                                        <Typography className="text-sm">Try adjusting your search or filters.</Typography>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            filteredProducts.map((p) => {
-                                const isLowStock = p.availableStock <= p.lowStockLimit;
-                                return (
-                                    <TableRow key={p.id} hover className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors">
-                                        <TableCell className="border-none px-8 py-6 font-mono text-xs font-bold text-slate-400">{p.sku}</TableCell>
-                                        <TableCell className="border-none px-8 py-6">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-10 h-10 ${viewMode === 'archived' ? 'bg-slate-100 text-slate-400' : 'bg-indigo-50 text-indigo-600'} rounded-xl flex items-center justify-center`}>
-                                                    <Package size={20} />
-                                                </div>
-                                                <span className={`font-bold ${viewMode === 'archived' ? 'text-slate-400' : 'text-slate-800'}`}>{p.name}</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="border-none px-8 py-6">
-                                            <Chip
-                                                label={p.categoryName || 'Uncategorized'}
-                                                className={`${viewMode === 'archived' ? 'bg-slate-50 text-slate-300' : 'bg-slate-100 text-slate-600'} font-bold text-[10px] uppercase tracking-wider h-7`}
-                                            />
-                                        </TableCell>
-                                        <TableCell className={`border-none px-8 py-6 font-bold ${viewMode === 'archived' ? 'text-slate-400' : 'text-slate-700'}`}>{formatLKR(p.price)}</TableCell>
-                                        <TableCell className="border-none px-8 py-6 text-center">
-                                            <div className="flex flex-col items-center gap-1">
-                                                <span className={`font-bold ${viewMode === 'archived' ? 'text-slate-300' : (isLowStock ? 'text-rose-600' : 'text-emerald-600')}`}>
-                                                    {p.availableStock} units
-                                                </span>
-                                                {isLowStock && viewMode === 'active' && <Chip icon={<AlertTriangle size={12} />} label="LOW STOCK" size="small" className="bg-rose-50 text-rose-600 font-bold text-[9px] h-5" />}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className={`border-none px-8 py-6 text-center font-semibold ${viewMode === 'archived' ? 'text-slate-300' : 'text-slate-500'}`}>{p.lowStockLimit}</TableCell>
-                                        <TableCell className="border-none px-8 py-6 text-right">
-                                            <IconButton onClick={(e) => handleMenuClick(e, p)}>
-                                                <MoreVertical size={20} className="text-slate-400" />
-                                            </IconButton>
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })
-                        )}
-                    </TableBody>
-                </Table>
-            </TableContainer>
+            {/* Table */}
+            <div onClick={() => setActiveMenu(null)}>
+                <DataTable
+                    dark={isDarkMode}
+                    columns={columns}
+                    data={filteredProducts}
+                    emptyMessage="No products found."
+                    actions={(row) => (
+                        <div className="relative" onClick={(e) => e.stopPropagation()}>
+                            <button
+                                onClick={() => setActiveMenu(activeMenu === row.id ? null : row.id)}
+                                className={`w-10 h-10 rounded-xl flex items-center justify-center border shadow-sm ${activeMenu === row.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-indigo-500/40' : (isDarkMode ? 'bg-white/5 text-slate-500 border-white/5 hover:bg-white/10 hover:text-white' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50 hover:text-indigo-600')}`}
+                            >
+                                <MoreVertical size={18} />
+                            </button>
 
-            <Menu
-                anchorEl={anchorEl}
-                open={Boolean(anchorEl)}
-                onClose={handleMenuClose}
-                PaperProps={{ sx: { borderRadius: '16px', minWidth: 180, mt: 1, border: '1px solid #f1f5f9', boxShadow: '0 4px 20px -5px rgba(0,0,0,0.05)' } }}
-            >
-                {viewMode === 'active' ? (
-                    <>
-                        <MenuItem onClick={() => handleOpenProductModal(selectedProduct)} className="text-sm font-semibold text-slate-700 py-3 px-4 flex gap-3 hover:bg-slate-50">
-                            <Edit size={16} className="text-indigo-600" /> Edit Product
-                        </MenuItem>
-                        <div className="h-px bg-slate-100 my-1 mx-2" />
-                        <MenuItem onClick={() => { setIsDeleteModalOpen(true); handleMenuClose(); }} className="text-sm font-semibold text-rose-600 py-3 px-4 flex gap-3 hover:bg-rose-50">
-                            <Trash2 size={16} /> Delete Product
-                        </MenuItem>
-                    </>
-                ) : (
-                    <MenuItem
-                        onClick={() => { restoreProductMutation.mutate(selectedProduct.id); }}
-                        className="text-sm font-semibold text-emerald-600 py-3 px-4 flex gap-3 hover:bg-emerald-50"
-                        disabled={restoreProductMutation.isPending}
-                    >
-                        {restoreProductMutation.isPending ? <CircularProgress size={16} color="inherit" /> : <RefreshCcw size={16} />}
-                        Restore Product
-                    </MenuItem>
-                )}
-            </Menu>
+                            {activeMenu === row.id && (
+                                <div className={`absolute right-0 top-12 w-64 rounded-[24px] border shadow-2xl py-4 z-50 ${isDarkMode ? 'bg-[#1a1b24] border-white/10' : 'bg-white border-slate-100'}`}>
+                                    <p className={`px-6 py-2 text-[9px] font-black uppercase tracking-[0.2em] border-b mb-2 ${isDarkMode ? 'text-slate-600 border-white/5' : 'text-slate-400 border-slate-50'}`}>Actions</p>
 
-            {/* Product Add/Edit Modal */}
+                                    {viewMode === 'active' ? (
+                                        <>
+                                            <button
+                                                onClick={() => handleOpenProductModal(row)}
+                                                className={`w-full px-6 py-3.5 text-left flex items-center gap-3 font-black text-xs uppercase tracking-wider ${isDarkMode ? 'text-indigo-400 hover:bg-indigo-500/10' : 'text-indigo-600 hover:bg-indigo-50'}`}
+                                            >
+                                                <Edit size={16} /> Edit Product
+                                            </button>
+                                            <button
+                                                onClick={() => { setIsDeleteModalOpen(true); setSelectedProduct(row); setActiveMenu(null); }}
+                                                className={`w-full px-6 py-3.5 text-left flex items-center gap-3 font-black text-xs uppercase tracking-wider ${isDarkMode ? 'text-rose-400 hover:bg-rose-500/10' : 'text-rose-600 hover:bg-rose-50'}`}
+                                            >
+                                                <Trash2 size={16} /> Archive Product
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <button
+                                            onClick={() => { restoreProductMutation.mutate(row.id); }}
+                                            className={`w-full px-6 py-3.5 text-left flex items-center gap-3 font-black text-xs uppercase tracking-wider ${isDarkMode ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-emerald-600 hover:bg-emerald-50'}`}
+                                            disabled={restoreProductMutation.isPending}
+                                        >
+                                            <RefreshCcw size={16} /> Restore Product
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                />
+            </div>
+
+            {/* Product Modal */}
             <Modal
                 isOpen={isProductModalOpen}
                 onClose={handleCloseProductModal}
                 title={isEditMode ? 'Edit Product' : 'Add New Product'}
+                dark={isDarkMode}
+                onSubmit={handleSubmit(onSubmitProduct)}
+                formRef={productFormRef}
+                onKeyDown={onProductKeyDown}
                 footer={
-                    <div className="flex gap-4">
+                    <div className="flex gap-4 justify-end">
+                        <button type="button" onClick={handleCloseProductModal} className={`px-6 py-3 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'text-slate-500 hover:text-white' : 'text-slate-400 hover:text-slate-600'}`}>Cancel</button>
                         <button
-                            onClick={handleCloseProductModal}
-                            className="flex-1 bg-slate-100 text-slate-500 font-bold py-4 rounded-2xl hover:bg-slate-200 transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleSubmit(onSubmitProduct)}
+                            type="submit"
                             disabled={createProductMutation.isPending || updateProductMutation.isPending}
-                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-100 transition-all active:scale-95 disabled:opacity-50"
+                            className="bg-indigo-600 text-white px-10 py-4 rounded-[20px] font-black text-[10px] uppercase tracking-widest hover:bg-indigo-500 shadow-xl shadow-indigo-600/20 flex items-center gap-3"
                         >
-                            {(createProductMutation.isPending || updateProductMutation.isPending) ? (
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
-                            ) : 'Save Changes'}
+                            {(createProductMutation.isPending || updateProductMutation.isPending) ? <CircularProgress size={16} color="inherit" /> : <ShieldCheck size={18} />}
+                            <span>{isEditMode ? 'Save Changes' : 'Add Product'}</span>
                         </button>
                     </div>
                 }
             >
-                <div className="space-y-5 py-4">
+                <div className="space-y-8">
                     {isEditMode && (
-                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Product SKU</p>
-                            <p className="font-mono text-indigo-600 font-bold">{selectedProduct?.sku}</p>
+                        <div className={`border p-6 rounded-[24px] flex items-center justify-between ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                            <div>
+                                <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Product SKU</p>
+                                <p className={`font-mono font-black text-lg ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>{selectedProduct?.sku}</p>
+                            </div>
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isDarkMode ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
+                                <BoxIcon size={24} />
+                            </div>
                         </div>
                     )}
-                    <TextField
-                        fullWidth
-                        label="Product Name"
-                        {...register('name')}
-                        error={!!errors.name}
-                        helperText={errors.name?.message}
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '16px' } }}
-                    />
-                    <div className="flex gap-2 items-start">
-                        <FormControl fullWidth error={!!errors.categoryId}>
-                            <InputLabel>Category</InputLabel>
-                            <Controller
-                                name="categoryId"
-                                control={control}
-                                render={({ field }) => (
-                                    <Select
-                                        {...field}
-                                        value={field.value || ''}
-                                        label="Category"
-                                        sx={{ borderRadius: '16px' }}
+
+                    <div className="space-y-6">
+                        <Input
+                            dark={isDarkMode}
+                            label="Product Name"
+                            {...register('name')}
+                            error={errors.name?.message}
+                            placeholder="Enter product name..."
+                        />
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+                            <div className="space-y-3">
+                                <label className={`text-[10px] font-black uppercase tracking-[0.2em] ml-2 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Category</label>
+                                <div className="flex gap-3">
+                                    <div className="relative flex-1">
+                                        <select
+                                            {...register('categoryId')}
+                                            className={`w-full h-14 px-6 border rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer focus:ring-2 focus:ring-sky-300/50 focus:border-sky-400 focus:shadow-[0_0_0_6px_rgba(56,189,248,0.18)] ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:bg-white/[0.08]' : 'bg-slate-50 border-slate-100 text-slate-900 focus:bg-slate-100/50'}`}
+                                        >
+                                            <option value="" className={isDarkMode ? 'bg-[#15161c]' : 'bg-white text-slate-900'}>Select Category...</option>
+                                            {categories?.map((cat) => (
+                                                <option key={cat.id} value={cat.id.toString()} className={isDarkMode ? 'bg-[#15161c]' : 'bg-white text-slate-900'}>{cat.name}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className={`absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`} size={16} />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsCategoryModalOpen(true)}
+                                        className={`w-14 h-14 flex items-center justify-center rounded-2xl border ${isDarkMode ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500 hover:text-white' : 'bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-600 hover:text-white'}`}
                                     >
-                                        <MenuItem value="" disabled><em>Select Category</em></MenuItem>
-                                        {categories?.map((cat) => (
-                                            <MenuItem key={cat.id} value={cat.id.toString()}>{cat.name}</MenuItem>
-                                        ))}
-                                    </Select>
-                                )}
+                                        <PlusCircle size={22} />
+                                    </button>
+                                </div>
+                                {errors.categoryId && <p className="text-rose-500 text-[9px] font-black uppercase tracking-widest ml-2">{errors.categoryId.message}</p>}
+                            </div>
+
+                            <Input
+                                dark={isDarkMode}
+                                label="Price"
+                                type="number"
+                                {...register('price')}
+                                error={errors.price?.message}
+                                placeholder="0.00"
                             />
-                            {errors.categoryId && <FormHelperText>{errors.categoryId.message}</FormHelperText>}
-                        </FormControl>
-                        <button
-                            type="button"
-                            onClick={() => setIsCategoryModalOpen(true)}
-                            className="h-14 min-w-[56px] flex items-center justify-center bg-slate-100 text-indigo-600 hover:bg-indigo-50 rounded-2xl transition-colors"
-                        >
-                            <PlusCircle size={24} />
-                        </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <Input
+                                dark={isDarkMode}
+                                label="Low Stock Limit"
+                                type="number"
+                                {...register('lowStockLimit')}
+                                error={errors.lowStockLimit?.message}
+                                placeholder="10"
+                            />
+
+                            <div className="space-y-3">
+                                <label className={`text-[10px] font-black uppercase tracking-[0.2em] ml-2 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Supplier</label>
+                                <div className="relative">
+                                    <select
+                                        {...register('supplierId')}
+                                        className={`w-full h-14 px-6 border rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer focus:ring-2 focus:ring-sky-300/50 focus:border-sky-400 focus:shadow-[0_0_0_6px_rgba(56,189,248,0.18)] ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:bg-white/[0.08]' : 'bg-slate-50 border-slate-100 text-slate-900 focus:bg-slate-100/50'}`}
+                                    >
+                                        <option value="" className={isDarkMode ? 'bg-[#15161c]' : 'bg-white text-slate-900'}>None Assigned</option>
+                                        {suppliers?.map((sup) => (
+                                            <option key={sup.id} value={sup.id.toString()} className={isDarkMode ? 'bg-[#15161c]' : 'bg-white text-slate-900'}>{sup.name}</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className={`absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`} size={16} />
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <TextField
-                            fullWidth
-                            label="Price"
-                            type="number"
-                            {...register('price')}
-                            error={!!errors.price}
-                            helperText={errors.price?.message}
-                            InputProps={{
-                                startAdornment: <InputAdornment position="start">Rs.</InputAdornment>,
-                                step: "0.01"
-                            }}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '16px' } }}
-                        />
-                        <TextField
-                            fullWidth
-                            label="Low Stock Limit"
-                            type="number"
-                            {...register('lowStockLimit')}
-                            error={!!errors.lowStockLimit}
-                            helperText={errors.lowStockLimit?.message}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '16px' } }}
-                        />
-                    </div>
-                    <FormControl fullWidth error={!!errors.supplierId}>
-                        <InputLabel>Supplier (Optional)</InputLabel>
-                        <Controller
-                            name="supplierId"
-                            control={control}
-                            render={({ field }) => (
-                                <Select
-                                    {...field}
-                                    value={field.value || ''}
-                                    label="Supplier (Optional)"
-                                    sx={{ borderRadius: '16px' }}
-                                >
-                                    <MenuItem value=""><em>None</em></MenuItem>
-                                    {suppliers?.map((sup) => (
-                                        <MenuItem key={sup.id} value={sup.id.toString()}>{sup.name}</MenuItem>
-                                    ))}
-                                </Select>
-                            )}
-                        />
-                        {errors.supplierId && <FormHelperText>{errors.supplierId.message}</FormHelperText>}
-                    </FormControl>
                 </div>
             </Modal>
 
@@ -578,73 +567,79 @@ const Products = () => {
             <Modal
                 isOpen={isCategoryModalOpen}
                 onClose={() => setIsCategoryModalOpen(false)}
-                title="Create New Category"
+                title="Add Category"
+                dark={isDarkMode}
+                onSubmit={handleSubmitCat(onSubmitCategory)}
+                formRef={categoryFormRef}
+                onKeyDown={onCategoryKeyDown}
                 footer={
-                    <div className="flex gap-4">
+                    <div className="flex gap-4 justify-end">
+                        <button type="button" onClick={() => setIsCategoryModalOpen(false)} className={`px-6 py-3 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'text-slate-500 hover:text-white' : 'text-slate-400 hover:text-slate-600'}`}>Cancel</button>
                         <button
-                            onClick={() => setIsCategoryModalOpen(false)}
-                            className="flex-1 bg-slate-100 text-slate-500 font-bold py-4 rounded-2xl hover:bg-slate-200 transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleSubmitCat(onSubmitCategory)}
+                            type="submit"
                             disabled={createCategoryMutation.isPending}
-                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-100 transition-all active:scale-95 disabled:opacity-50"
+                            className="bg-emerald-600 text-white px-10 py-4 rounded-[20px] font-black text-[10px] uppercase tracking-widest hover:bg-emerald-500 shadow-xl shadow-emerald-600/20 flex items-center gap-3"
                         >
-                            {createCategoryMutation.isPending ? (
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
-                            ) : 'Create'}
+                            {createCategoryMutation.isPending ? <CircularProgress size={16} color="inherit" /> : <PlusCircle size={18} />}
+                            <span>Add Category</span>
                         </button>
                     </div>
                 }
             >
-                <div className="py-4">
-                    <TextField
-                        fullWidth
+                <div className="space-y-6">
+                    <div className={`border rounded-2xl p-5 flex items-start gap-4 ${isDarkMode ? 'bg-emerald-500/5 border-emerald-500/10' : 'bg-emerald-50 border-emerald-100'}`}>
+                        <PlusCircle size={20} className="text-emerald-500 shrink-0" />
+                        <p className={`text-[11px] font-bold leading-relaxed uppercase tracking-wide ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                            Define a new category to organize your products.
+                        </p>
+                    </div>
+                    <Input
+                        dark={isDarkMode}
                         label="Category Name"
                         autoFocus
                         {...registerCat('name')}
-                        error={!!catErrors.name}
-                        helperText={catErrors.name?.message}
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '16px' } }}
+                        error={catErrors.name?.message}
+                        placeholder="Electronics, Consumables, etc..."
                     />
                 </div>
             </Modal>
 
-            {/* Delete Confirmation Modal */}
+            {/* Delete Modal */}
             <Modal
                 isOpen={isDeleteModalOpen}
                 onClose={() => setIsDeleteModalOpen(false)}
-                title="Delete Product?"
+                title="Archive Product"
+                dark={isDarkMode}
+                onSubmit={handleDelete}
                 footer={
                     <div className="flex flex-col gap-3 w-full">
                         <button
-                            onClick={handleDelete}
+                            type="submit"
                             disabled={deleteProductMutation.isPending}
-                            className="bg-rose-600 hover:bg-rose-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-rose-100 transition-all active:scale-95 disabled:opacity-50"
+                            className="bg-rose-600 text-white py-5 rounded-[24px] font-black text-xs uppercase tracking-widest hover:bg-rose-500 shadow-xl shadow-rose-600/20"
                         >
-                            {deleteProductMutation.isPending ? (
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
-                            ) : 'Yes, Delete Product'}
+                            {deleteProductMutation.isPending ? <CircularProgress size={16} color="inherit" /> : 'Confirm Archive'}
                         </button>
                         <button
+                            type="button"
                             onClick={() => setIsDeleteModalOpen(false)}
-                            className="text-slate-500 font-bold py-4 rounded-2xl hover:bg-slate-50 transition-colors"
+                            className={`font-black text-[10px] uppercase tracking-widest py-3 ${isDarkMode ? 'text-slate-500 hover:text-white' : 'text-slate-400 hover:text-slate-600'}`}
                         >
-                            Keep Product
+                            Cancel
                         </button>
                     </div>
                 }
             >
-                <div className="text-center py-6">
-                    <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <Trash2 size={40} className="text-rose-500" />
+                <div className="text-center py-6 space-y-6">
+                    <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto border-2 relative ${isDarkMode ? 'bg-rose-500/10 border-rose-500/20' : 'bg-rose-50 border-rose-100'}`}>
+                        <ArchiveX size={40} className="text-rose-500" />
                     </div>
-                    <p className="text-slate-600 leading-relaxed text-center">
-                        Delete this product? <br />
-                        <span className="text-sm text-slate-400">You can restore it from <b>Archived</b> later.</span>
-                    </p>
+                    <div className="space-y-2">
+                        <p className={`font-black uppercase italic text-xl tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Archive this product?</p>
+                        <p className={`text-xs font-bold uppercase tracking-widest leading-relaxed max-w-xs mx-auto ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                            The product will be moved to the <span className="text-rose-400">archived list</span> and removed from active inventory.
+                        </p>
+                    </div>
                 </div>
             </Modal>
         </div>

@@ -6,20 +6,20 @@ import {
   Save,
   Info,
   Infinity as InfinityIcon,
-  AlertTriangle
+  AlertTriangle,
+  Package,
+  Users as UsersIcon
 } from 'lucide-react';
-import { CircularProgress, Alert, Chip } from '@mui/material';
-import { toast } from 'react-toastify';
+import { CircularProgress, Chip } from '@mui/material';
 import { subscriptionService } from '../../api';
 import Modal from '../../components/ui/Modal';
-import Button from '../../components/ui/Button';
-
-import { getRole } from '../../api/auth'; // ✅ adjust path if you placed auth.js elsewhere
+import { getRole } from '../../api/auth';
 
 const STANDARD_LIMITS = [
-  { key: 'INVOICES_PER_MONTH', label: 'Invoices Per Month', icon: <Activity size={18} /> },
-  { key: 'PRODUCTS_LIMIT', label: 'Max Products', icon: <Zap size={18} /> },
-  { key: 'CUSTOMERS_LIMIT', label: 'Max Customers', icon: <Zap size={18} /> },
+  { key: 'INVOICES_PER_MONTH', label: 'Monthly Invoice Quota', icon: <Activity size={20} /> },
+  { key: 'PRODUCTS_LIMIT', label: 'Product Inventory Limit', icon: <Package size={20} /> },
+  { key: 'CUSTOMERS_LIMIT', label: 'Customer Database Limit', icon: <UsersIcon size={20} /> },
+  { key: 'AI_CREDITS', label: 'AI Generation Credits', icon: <Zap size={20} /> },
 ];
 
 const PlanLimitsModal = ({ isOpen, onClose, plan }) => {
@@ -28,15 +28,13 @@ const PlanLimitsModal = ({ isOpen, onClose, plan }) => {
 
   const isAdmin = useMemo(() => getRole() === "ADMIN", []);
 
-  // ✅ Fetch existing limits (backend returns Map<String, Long>)
-  const { data: existingLimits, isLoading, error } = useQuery({
+  const { data: existingLimits, isLoading } = useQuery({
     queryKey: ['plan-limits', plan?.id],
     queryFn: () => subscriptionService.fetchPlanLimits(plan.id),
-    enabled: !!plan?.id && isOpen && isAdmin, // ✅ don't even call API if not admin
+    enabled: !!plan?.id && isOpen && isAdmin,
     retry: false
   });
 
-  // ✅ Normalize existingLimits as a Map/object
   useEffect(() => {
     if (!isOpen) return;
 
@@ -60,15 +58,10 @@ const PlanLimitsModal = ({ isOpen, onClose, plan }) => {
     onSuccess: () => {
       queryClient.invalidateQueries(['plan-limits', plan?.id]);
       queryClient.invalidateQueries(['admin-plans']);
-      toast.success('Service level limits updated successfully');
       onClose();
     },
     onError: (err) => {
-      if (err?.isForbidden) {
-        toast.error("Admin access required");
-        return;
-      }
-      toast.error(err?.response?.data?.message || 'Failed to save limits');
+      // Handled globally
     }
   });
 
@@ -90,11 +83,9 @@ const PlanLimitsModal = ({ isOpen, onClose, plan }) => {
 
   const handleSave = () => {
     if (!isAdmin) {
-      toast.error("Admin access required");
       return;
     }
 
-    // ✅ MUST match backend DTO: PlanLimitUpsertDto { key, value }
     const payload = limitsData.map(({ limitKey, limitValue }) => ({
       key: limitKey,
       value: Number(limitValue)
@@ -107,76 +98,80 @@ const PlanLimitsModal = ({ isOpen, onClose, plan }) => {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`${plan?.name} — Service Limits`}
-      maxWidth="max-w-xl"
+      title="Infrastructure Quota"
+      dark
+      onSubmit={handleSave}
       footer={
         <div className="flex gap-4 justify-end">
-          <Button variant="outline" onClick={onClose}>Discard</Button>
-          <Button
-            onClick={handleSave}
-            loading={mutation.isLoading}
-            icon={Save}
-            disabled={!isAdmin} // ✅ disable for OWNER
+          <button
+            type="button"
+            className="px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest text-slate-500 hover:text-white transition-colors"
+            onClick={onClose}
           >
-            Save Configuration
-          </Button>
+            Discard
+          </button>
+          <button
+            type="submit"
+            disabled={!isAdmin || mutation.isPending}
+            className="px-10 py-4 bg-indigo-600 text-white rounded-[20px] font-black text-xs uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/20 active:scale-95 flex items-center gap-3"
+          >
+            {mutation.isPending ? <CircularProgress size={16} color="inherit" /> : <Save size={18} />}
+            <span>Commit Changes</span>
+          </button>
         </div>
       }
     >
-      <div className="space-y-8">
-        {!isAdmin && (
-          <Alert severity="warning" className="rounded-2xl border border-amber-100 bg-amber-50/50">
-            <div className="flex items-start gap-2">
-              <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
-              <p className="text-xs font-medium text-amber-800 leading-relaxed">
-                You are logged in as OWNER. Only ADMIN can edit plan limits.
-              </p>
-            </div>
-          </Alert>
-        )}
+      <div className="space-y-10">
+        <div className="flex items-center gap-5 pb-6 border-b border-white/5">
+          <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center font-black text-indigo-500 text-xl">
+            {plan?.name?.[0].toUpperCase() || 'P'}
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] mb-1">Target Tier</p>
+            <h3 className="text-xl font-black text-white italic uppercase tracking-tight">{plan?.name}</h3>
+          </div>
+        </div>
 
-        <Alert severity="info" className="rounded-2xl border border-blue-100 bg-blue-50/50">
-          <div className="flex items-start gap-2">
-            <Info size={18} className="text-blue-600 shrink-0 mt-0.5" />
-            <p className="text-xs font-medium text-blue-800 leading-relaxed">
-              Set values to <span className="font-black italic">-1</span> for unlimited quota.
+        {!isAdmin && (
+          <div className="bg-amber-500/5 border border-amber-500/10 rounded-[20px] p-5 flex items-start gap-4">
+            <AlertTriangle size={20} className="text-amber-500 shrink-0" />
+            <p className="text-[11px] font-bold text-amber-500/80 uppercase tracking-wide leading-relaxed">
+              Authentication Mismatch: Only users with <span className="text-white">Admin Privileges</span> can modify infrastructure quotas.
             </p>
           </div>
-        </Alert>
+        )}
 
         {isAdmin && isLoading ? (
-          <div className="flex flex-col items-center justify-center py-10 gap-3">
-            <CircularProgress size={32} />
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading...</p>
+          <div className="flex flex-col items-center justify-center py-12 gap-4">
+            <CircularProgress size={32} sx={{ color: '#6366f1' }} />
+            <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Retrieving Quota Manifest...</p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-8">
             {limitsData.map((limit) => (
-              <div key={limit.limitKey} className="group animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-slate-50 text-slate-500 flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+              <div key={limit.limitKey} className="group transition-all">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-white/5 text-slate-500 flex items-center justify-center group-hover:bg-indigo-500/10 group-hover:text-indigo-400 transition-all border border-white/5">
                       {limit.icon}
                     </div>
-                    <label className="text-sm font-black text-slate-800 tracking-tight">
+                    <label className="text-[11px] font-black text-white uppercase tracking-widest opacity-70 group-hover:opacity-100 transition-opacity">
                       {limit.label}
                     </label>
                   </div>
                   {limit.limitValue === -1 && (
-                    <Chip
-                      label="UNLIMITED QUOTA"
-                      size="small"
-                      icon={<InfinityIcon size={12} />}
-                      className="bg-indigo-600 text-white font-black text-[9px] uppercase tracking-widest px-2"
-                    />
+                    <div className="flex items-center gap-2 bg-indigo-500/10 text-indigo-400 px-3 py-1.5 rounded-lg border border-indigo-500/20">
+                      <InfinityIcon size={12} />
+                      <span className="text-[9px] font-black uppercase tracking-widest">Infinite</span>
+                    </div>
                   )}
                 </div>
 
-                <div className="flex gap-3">
-                  <div className="relative flex-1">
+                <div className="flex gap-4">
+                  <div className="relative flex-1 group/input">
                     <input
                       type="number"
-                      className="w-full h-14 bg-slate-50 border border-slate-100 rounded-2xl px-5 text-lg font-black text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none"
+                      className="w-full h-16 bg-white/[0.03] border border-white/5 rounded-2xl px-6 text-xl font-black text-white focus:ring-1 focus:ring-indigo-500/50 focus:bg-white/[0.08] transition-all outline-none"
                       value={limit.limitValue}
                       onChange={(e) => handleValueChange(limit.limitKey, e.target.value)}
                       placeholder="Quota amount..."
@@ -187,11 +182,10 @@ const PlanLimitsModal = ({ isOpen, onClose, plan }) => {
                   <button
                     onClick={() => handleSetUnlimited(limit.limitKey)}
                     disabled={!isAdmin}
-                    className={`h-14 px-6 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${
-                      limit.limitValue === -1
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
-                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                    } ${!isAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`h-16 px-8 rounded-2xl font-black text-[10px] uppercase tracking-widest border transition-all ${limit.limitValue === -1
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+                      : 'bg-white/5 border-white/5 text-slate-500 hover:text-white hover:bg-white/10'
+                      } ${!isAdmin ? 'opacity-30 cursor-not-allowed' : 'active:scale-95'}`}
                   >
                     Unlimited
                   </button>
@@ -199,21 +193,6 @@ const PlanLimitsModal = ({ isOpen, onClose, plan }) => {
               </div>
             ))}
           </div>
-        )}
-
-        {!isAdmin && limitsData.length === 0 && (
-          <div className="text-center py-10 space-y-3">
-            <AlertTriangle className="mx-auto text-amber-500" size={32} />
-            <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">
-              Admin access required
-            </p>
-          </div>
-        )}
-
-        {isAdmin && !isLoading && error && (
-          <Alert severity="error">
-            Failed to load limits. {String(error?.message || '')}
-          </Alert>
         )}
       </div>
     </Modal>

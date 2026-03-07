@@ -7,7 +7,7 @@ import LoadingSpinner from "../components/common/LoadingSpinner";
 const normalizeRole = (r) => (r === "USER" ? "OWNER" : r);
 
 const ProtectedRoute = ({ allowedRoles = [] }) => {
-    const { isAuthenticated, user, isLoading } = useAuth();
+    const { isAuthenticated, user, hasProfile, isLoading } = useAuth();
 
     // 1) Loading
     if (isLoading) return <LoadingSpinner fullPage />;
@@ -26,6 +26,19 @@ const ProtectedRoute = ({ allowedRoles = [] }) => {
     if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
         const redirectPath = userRole === "ADMIN" ? "/admin/dashboard" : "/dashboard";
         return <Navigate to={redirectPath} replace />;
+    }
+
+    // 5) Profile completion check for Owners
+    const isOwner = userRole === "OWNER" || userRole === "USER"; // "USER" is normalized to "OWNER" above
+    const isAtSetupPage = window.location.pathname === "/setup-profile";
+
+    if (isOwner && !hasProfile && !isAtSetupPage) {
+        return <Navigate to="/setup-profile" replace />;
+    }
+
+    // 6) If profile exists, don't stay on setup page
+    if (isOwner && hasProfile && isAtSetupPage) {
+        return <Navigate to="/dashboard" replace />;
     }
 
     return <Outlet />;

@@ -12,43 +12,34 @@ import {
     Inbox,
     AlertCircle,
     Info,
-    RefreshCw
+    RefreshCw,
+    ChevronDown,
+    Zap,
+    Activity,
+    Database,
+    Clock,
+    ShieldAlert
 } from 'lucide-react';
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Paper,
     IconButton,
-    Menu,
-    MenuItem,
     CircularProgress,
-    TextField,
-    Button,
-    Select,
-    FormControl,
-    InputLabel,
-    Typography,
-    Box,
-    Chip,
-    Avatar,
-    Divider,
-    Alert
+    Tooltip,
+    Avatar
 } from '@mui/material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { toast } from 'react-toastify';
-import { format, isValid, parseISO } from 'date-fns';
 import { batchService, productService } from '../../api';
+import { useTheme } from '../../context/ThemeContext';
+
+// UI Components
 import Modal from '../../components/ui/Modal';
-import CreatedAtText from '../../components/ui/CreatedAtText';
+import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import DataTable from '../../components/ui/DataTable';
 import Badge from '../../components/ui/Badge';
+import CreatedAtText from '../../components/ui/CreatedAtText';
 
 // ─── Validation Schema ────────────────────────────────────────────────────────
 const addStockSchema = z.object({
@@ -68,21 +59,20 @@ const toArray = (data) => {
     return [];
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
 const Batches = () => {
     const queryClient = useQueryClient();
+    const { isDarkMode } = useTheme();
 
     // ── State ──────────────────────────────────────────────────────────────────
     const [selectedProductId, setSelectedProductId] = useState('');
     const [searchInput, setSearchInput] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [stockFilter, setStockFilter] = useState('All');
-    const [filterAnchorEl, setFilterAnchorEl] = useState(null);
-    const [anchorEl, setAnchorEl] = useState(null);
     const [selectedBatch, setSelectedBatch] = useState(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [activeMenu, setActiveMenu] = useState(null);
 
     // ── Debounced search ───────────────────────────────────────────────────────
     useEffect(() => {
@@ -129,7 +119,6 @@ const Batches = () => {
         defaultValues: { productId: '', batchNumber: '', qty: '' },
     });
 
-    // Keep hidden productId field in sync with selected product
     useEffect(() => {
         if (selectedProductId) {
             setValue('productId', Number(selectedProductId), { shouldValidate: false });
@@ -142,12 +131,11 @@ const Batches = () => {
         onSuccess: async (data) => {
             await queryClient.invalidateQueries({ queryKey: ['batches'] });
             await queryClient.invalidateQueries({ queryKey: ['products'] });
-            toast.success(data?.message || 'Stock added successfully!');
             setIsAddModalOpen(false);
             reset({ productId: Number(selectedProductId), batchNumber: '', qty: '' });
         },
         onError: (err) => {
-            toast.error(err.response?.data?.message || 'Failed to add stock. Please try again.');
+            // Handled globally
         },
     });
 
@@ -156,19 +144,17 @@ const Batches = () => {
         onSuccess: async (data) => {
             await queryClient.invalidateQueries({ queryKey: ['batches'] });
             await queryClient.invalidateQueries({ queryKey: ['products'] });
-            toast.success(data?.message || 'Batch removed successfully!');
             setIsDeleteModalOpen(false);
-            setAnchorEl(null);
+            setActiveMenu(null);
             setSelectedBatch(null);
         },
         onError: (err) => {
-            toast.error(err.response?.data?.message || 'Failed to remove batch.');
+            // Handled globally
         },
     });
 
     // ── Computed ───────────────────────────────────────────────────────────────
     const selectedProduct = useMemo(() => {
-        // Compare as numbers — selectedProductId may be a string
         return products.find((p) => String(p.id) === String(selectedProductId)) || null;
     }, [products, selectedProductId]);
 
@@ -186,7 +172,6 @@ const Batches = () => {
         });
     }, [batches, searchTerm, stockFilter]);
 
-    // ── Handlers ───────────────────────────────────────────────────────────────
     const handleOpenAddModal = () => {
         setValue('productId', Number(selectedProductId), { shouldValidate: false });
         setIsAddModalOpen(true);
@@ -196,13 +181,6 @@ const Batches = () => {
         addStockMutation.mutate({ ...data, productId: Number(selectedProductId) });
     };
 
-    const handleMenuClick = (event, batch) => {
-        setAnchorEl(event.currentTarget);
-        setSelectedBatch(batch);
-    };
-
-    const handleMenuClose = () => setAnchorEl(null);
-
     const handleDelete = () => {
         if (selectedBatch) {
             deleteBatchMutation.mutate(selectedBatch.id);
@@ -211,537 +189,374 @@ const Batches = () => {
 
     const getBatchQty = (b) => b?.qtyAvailable ?? b?.qty_available ?? b?.quantity ?? 0;
 
-    // ── Loading state ──────────────────────────────────────────────────────────
+    const columns = [
+        {
+            key: 'batchNumber',
+            label: 'Batch ID',
+            render: (val) => (
+                <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center border shrink-0 ${isDarkMode ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/10' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>
+                        <Database size={14} />
+                    </div>
+                    <span className={`font-black text-xs uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{val}</span>
+                </div>
+            )
+        },
+        {
+            key: 'qtyAvailable',
+            label: 'Stock Level',
+            render: (_, row) => {
+                const qty = getBatchQty(row);
+                return (
+                    <div className="flex items-center gap-3">
+                        <div className={`w-2 h-2 rounded-full ${qty > 0 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`} />
+                        <span className={`text-sm font-bold tracking-tight ${qty > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {qty} <span className={`text-[10px] uppercase font-bold ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Units</span>
+                        </span>
+                    </div>
+                );
+            }
+        },
+        {
+            key: 'createdAt',
+            label: 'Added Date',
+            render: (val) => (
+                <div className="flex items-center gap-2">
+                    <Clock size={12} className={isDarkMode ? 'text-slate-400' : 'text-slate-400'} />
+                    <CreatedAtText value={val} className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} showIcon={false} />
+                </div>
+            )
+        }
+    ];
+
     if (isLoadingProducts) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
-                <CircularProgress color="primary" />
-                <Typography className="text-slate-400 text-sm">Loading products…</Typography>
+            <div className="flex flex-col items-center justify-center min-h-[500px] gap-6">
+                <CircularProgress sx={{ color: '#6366f1' }} />
+                <p className={`text-[10px] font-bold uppercase tracking-[0.2em] animate-pulse ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Loading inventory data...</p>
             </div>
         );
     }
 
-    if (productsError) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-                <AlertCircle size={40} className="text-rose-400" />
-                <Typography className="text-slate-600 font-semibold">Failed to load products</Typography>
-                <Button
-                    variant="outlined"
-                    onClick={() => queryClient.invalidateQueries({ queryKey: ['products'] })}
-                    startIcon={<RefreshCw size={16} />}
-                    className="rounded-xl"
-                >
-                    Retry
-                </Button>
-            </div>
-        );
-    }
-
-    // ── Render ─────────────────────────────────────────────────────────────────
     return (
-        <div className="space-y-8">
-
-            {/* ── Header ─────────────────────────────────────────────────── */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Stock Batches</h1>
-                    <p className="text-slate-500 mt-1 text-sm">Track inventory arrivals and batch-wise stock levels.</p>
+        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700 pb-20">
+            {/* Header */}
+            <div className={`flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b transition-all duration-300 ${isDarkMode ? 'border-white/5' : 'border-slate-200'}`}>
+                <div className="space-y-2">
+                    <h1 className={`text-5xl font-black tracking-tighter italic uppercase leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        Stock Batches
+                    </h1>
+                    <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Track and manage product arrivals and stock levels</p>
                 </div>
                 {selectedProductId && (
-                    <Button
-                        variant="contained"
+                    <button
                         onClick={handleOpenAddModal}
-                        startIcon={<Plus size={18} />}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-3 rounded-2xl shadow-lg shadow-indigo-100 capitalize"
+                        className="flex items-center gap-2.5 bg-indigo-600 text-white px-8 py-3.5 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
                     >
-                        Add Stock
-                    </Button>
+                        <Plus size={20} />
+                        <span>Add New Batch</span>
+                    </button>
                 )}
             </div>
 
-            {/* ── Product Selection + Summary ─────────────────────────────── */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                {/* Left Side: Product Selector */}
+                <div className="lg:col-span-4 space-y-6">
+                    <div className={`border p-8 rounded-[32px] space-y-8 relative overflow-hidden group transition-all duration-300 ${isDarkMode ? 'bg-[#15161c] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        <div>
+                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Select Product</p>
+                            <div className="relative">
+                                <select
+                                    value={selectedProductId}
+                                    onChange={(e) => setSelectedProductId(e.target.value)}
+                                    className={`w-full h-14 pl-6 pr-12 border rounded-2xl text-[11px] font-black uppercase tracking-widest outline-none appearance-none cursor-pointer transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white hover:bg-white/[0.08]' : 'bg-slate-50 border-slate-100 text-slate-900 hover:bg-slate-100'}`}
+                                >
+                                    <option value="" className={isDarkMode ? 'bg-[#15161c]' : 'bg-white'}>Choose a Product...</option>
+                                    {products.map((p) => (
+                                        <option key={p.id} value={String(p.id)} className={isDarkMode ? 'bg-[#15161c]' : 'bg-white'}>
+                                            {p.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <ChevronDown className={`absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`} size={16} />
+                            </div>
+                        </div>
 
-                {/* Left panel — product picker */}
-                <Box className="lg:col-span-1">
-                    <Paper
-                        elevation={0}
-                        className="p-6 rounded-3xl border border-slate-100 shadow-sm h-full"
-                    >
-                        <Typography className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
-                            Select Product
-                        </Typography>
-
-                        <FormControl fullWidth>
-                            <InputLabel></InputLabel>
-                            <Select
-                                label="Product"
-                                value={selectedProductId}
-                                onChange={(e) => {
-                                    setSelectedProductId(e.target.value);
-                                    setSearchInput('');
-                                    setSearchTerm('');
-                                    setStockFilter('All');
-                                }}
-                                sx={{ borderRadius: '16px' }}
-                                displayEmpty
-                            >
-                                <MenuItem value="" disabled>
-                                    <em>Select a product to view batches</em>
-                                </MenuItem>
-                                {products.map((p) => (
-                                    <MenuItem key={p.id} value={String(p.id)}>
-                                        <div className="flex flex-col py-0.5">
-                                            <span className="font-bold text-slate-700">{p.name}</span>
-                                            <span className="text-[10px] text-slate-400 font-mono">
-                                                SKU: {p.sku || p.skuCode || '—'}
-                                            </span>
-                                        </div>
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-
-                        {/* Product summary card */}
-                        {selectedProduct && (
-                            <Box className="mt-6 space-y-4">
-                                <Divider />
-                                <div className="space-y-3 pt-2">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">SKU</span>
-                                        <span className="text-sm font-mono font-bold text-slate-700">
-                                            {selectedProduct.sku || selectedProduct.skuCode || '—'}
-                                        </span>
+                        {selectedProduct ? (
+                            <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
+                                <div className={`h-px ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
+                                <div className="flex items-center gap-5">
+                                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center border shrink-0 ${isDarkMode ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/10' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>
+                                        <Package size={32} />
                                     </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Category</span>
-                                        <span className="text-xs font-bold px-2 py-1 bg-slate-50 text-slate-500 rounded-lg">
-                                            {selectedProduct.categoryName || selectedProduct.category?.name || 'Uncategorized'}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between items-center pt-1">
-                                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Stock</span>
-                                        <Chip
-                                            label={`${selectedProduct.availableStock ?? selectedProduct.stock ?? 0} Units`}
-                                            size="small"
-                                            sx={{
-                                                fontWeight: 700,
-                                                fontSize: '0.7rem',
-                                                height: 26,
-                                                bgcolor: (selectedProduct.availableStock ?? selectedProduct.stock ?? 0) <= (selectedProduct.lowStockLimit ?? 5)
-                                                    ? '#fff1f2' : '#f0fdf4',
-                                                color: (selectedProduct.availableStock ?? selectedProduct.stock ?? 0) <= (selectedProduct.lowStockLimit ?? 5)
-                                                    ? '#e11d48' : '#16a34a',
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Batches</span>
-                                        <span className="text-sm font-bold text-slate-700">{batches.length}</span>
+                                    <div>
+                                        <h3 className={`text-xl font-black italic uppercase tracking-tight leading-none mb-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{selectedProduct.name}</h3>
+                                        <p className={`text-[10px] font-bold uppercase tracking-widest leading-none mt-1 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>SKU: {selectedProduct.sku || 'N/A'}</p>
                                     </div>
                                 </div>
 
-                                <Button
-                                    fullWidth
-                                    variant="contained"
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className={`p-4 border rounded-2xl ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                                        <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Total Stock</p>
+                                        <p className={`text-xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{selectedProduct.availableStock ?? 0}</p>
+                                    </div>
+                                    <div className={`p-4 border rounded-2xl ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                                        <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Active Batches</p>
+                                        <p className={`text-xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{batches?.length ?? 0}</p>
+                                    </div>
+                                </div>
+
+                                <button
                                     onClick={handleOpenAddModal}
-                                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-2xl shadow-lg shadow-indigo-100 capitalize"
-                                    startIcon={<Plus size={18} />}
+                                    className={`w-full h-14 border rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all border-dashed ${isDarkMode ? 'bg-white/5 border-white/5 text-white hover:bg-indigo-600' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600'}`}
                                 >
-                                    Add Stock Batch
-                                </Button>
-                            </Box>
-                        )}
-                    </Paper>
-                </Box>
-
-                {/* Right panel — batches table */}
-                <Box className="lg:col-span-2">
-                    {!selectedProductId ? (
-                        <Paper
-                            elevation={0}
-                            className="rounded-3xl border border-dashed border-slate-200 p-20 flex flex-col items-center justify-center text-center h-full bg-slate-50/50"
-                        >
-                            <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center text-indigo-500 mb-6">
-                                <Package size={32} />
+                                    Add New Batch
+                                </button>
                             </div>
-                            <Typography className="text-xl font-bold text-slate-700 mb-2">
-                                No Product Selected
-                            </Typography>
-                            <Typography className="text-slate-500 max-w-xs mx-auto">
-                                Select a product from the dropdown to view and manage its stock batches.
-                            </Typography>
-                        </Paper>
-                    ) : (
-                        <div className="space-y-4">
+                        ) : (
+                            <div className="py-12 flex flex-col items-center gap-4 text-center">
+                                <div className={`w-16 h-16 border rounded-3xl flex items-center justify-center ${isDarkMode ? 'bg-white/[0.02] border-white/5 text-slate-700' : 'bg-slate-50 border-slate-100 text-slate-300'}`}>
+                                    <Activity size={32} />
+                                </div>
+                                <p className={`text-[11px] font-bold leading-relaxed uppercase tracking-widest max-w-[200px] ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>
+                                    Select a product to view its batch records.
+                                </p>
+                            </div>
+                        )}
+                        <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl group-hover:bg-indigo-500/10 transition-colors" />
+                    </div>
+                </div>
 
+                {/* Right Side: Batch Registry */}
+                <div className="lg:col-span-8 space-y-6">
+                    {!selectedProductId ? (
+                        <div className={`border border-dashed rounded-[40px] p-32 flex flex-col items-center text-center gap-8 group transition-all duration-300 ${isDarkMode ? 'bg-[#15161c] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                            <div className={`w-24 h-24 border rounded-[32px] flex items-center justify-center transition-transform duration-500 group-hover:scale-110 ${isDarkMode ? 'bg-white/5 border-white/5 text-slate-800' : 'bg-slate-50 border-slate-100 text-slate-300'}`}>
+                                <Database size={48} />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className={`text-2xl font-black uppercase italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Waiting for Selection</h3>
+                                <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-xs mx-auto leading-relaxed ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>
+                                    Please select a product from the left to load its batch records.
+                                </p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-700">
                             {/* Toolbar */}
-                            <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-3">
-                                <div className="relative flex-1">
-                                    <Search
-                                        size={16}
-                                        className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                                    />
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                                <div className="md:col-span-8 relative group">
+                                    <Search className={`absolute left-5 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-slate-600 group-focus-within:text-indigo-500' : 'text-slate-400 group-focus-within:text-indigo-600'}`} size={18} />
                                     <input
                                         type="text"
-                                        placeholder="Search by batch number…"
+                                        placeholder="Search by batch number..."
                                         value={searchInput}
                                         onChange={(e) => setSearchInput(e.target.value)}
-                                        className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                                        className={`w-full pl-14 pr-6 py-3.5 border rounded-[20px] text-sm font-bold transition-all outline-none ${isDarkMode ? 'bg-[#15161c] border-white/5 text-white placeholder:text-slate-700 focus:bg-[#1a1b24] focus:ring-1 focus:ring-indigo-500/50' : 'bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:bg-slate-50 focus:ring-1 focus:ring-indigo-500/30 shadow-sm'}`}
                                     />
-                                    {searchInput && (
-                                        <button
-                                            onClick={() => setSearchInput('')}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                                        >
-                                            <X size={14} />
-                                        </button>
-                                    )}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={(e) => setFilterAnchorEl(e.currentTarget)}
-                                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all ${stockFilter !== 'All'
-                                            ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
-                                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                                            }`}
+                                <div className="md:col-span-4 relative">
+                                    <select
+                                        value={stockFilter}
+                                        onChange={(e) => setStockFilter(e.target.value)}
+                                        className={`w-full h-12 px-6 border rounded-[20px] text-[10px] font-black uppercase tracking-widest outline-none cursor-pointer transition-all appearance-none ${isDarkMode ? 'bg-[#15161c] border-white/5 text-slate-400 hover:bg-[#1a1b24] hover:text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-900 shadow-sm'}`}
                                     >
-                                        <Filter size={15} />
-                                        {stockFilter === 'All' ? 'Filter' : stockFilter}
-                                    </button>
-                                    <Menu
-                                        anchorEl={filterAnchorEl}
-                                        open={Boolean(filterAnchorEl)}
-                                        onClose={() => setFilterAnchorEl(null)}
-                                        PaperProps={{ sx: { borderRadius: '12px', mt: 1, border: '1px solid #f1f5f9', minWidth: 160 } }}
-                                    >
-                                        {['All', 'In Stock', 'Zero Stock'].map((f) => (
-                                            <MenuItem
-                                                key={f}
-                                                onClick={() => { setStockFilter(f); setFilterAnchorEl(null); }}
-                                                className={`text-sm font-semibold py-2 px-5 ${stockFilter === f ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600'}`}
-                                            >
-                                                {f}
-                                            </MenuItem>
-                                        ))}
-                                    </Menu>
-
-                                    <IconButton
-                                        onClick={() => refetchBatches()}
-                                        size="small"
-                                        title="Refresh batches"
-                                        className="border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50"
-                                    >
-                                        <RefreshCw size={16} />
-                                    </IconButton>
+                                        <option value="All" className={isDarkMode ? 'bg-[#15161c]' : 'bg-white'}>All Batches</option>
+                                        <option value="In Stock" className={isDarkMode ? 'bg-[#15161c]' : 'bg-white'}>In Stock</option>
+                                        <option value="Zero Stock" className={isDarkMode ? 'bg-[#15161c]' : 'bg-white'}>Empty Batches</option>
+                                    </select>
+                                    <ChevronDown className={`absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`} size={14} />
                                 </div>
                             </div>
 
-                            {/* Error banner */}
-                            {batchesError && (
-                                <Alert
-                                    severity="error"
-                                    action={
-                                        <Button color="inherit" size="small" onClick={() => refetchBatches()}>
-                                            Retry
-                                        </Button>
-                                    }
-                                    sx={{ borderRadius: '16px' }}
-                                >
-                                    {batchesError.response?.data?.message || 'Failed to load batches.'}
-                                </Alert>
-                            )}
+                            {/* DataTable */}
+                            <div onClick={() => setActiveMenu(null)}>
+                                <DataTable
+                                    dark={isDarkMode}
+                                    columns={columns}
+                                    data={filteredBatches}
+                                    isLoading={isLoadingBatches}
+                                    emptyMessage="No batches found for this product."
+                                    actions={(row) => (
+                                        <div className="relative" onClick={(e) => e.stopPropagation()}>
+                                            <button
+                                                onClick={() => setActiveMenu(activeMenu === row.id ? null : row.id)}
+                                                className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center border shadow-sm ${activeMenu === row.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-indigo-500/40' : (isDarkMode ? 'bg-white/5 text-slate-500 border-white/5 hover:bg-white/10 hover:text-white' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50 hover:text-indigo-600')}`}
+                                            >
+                                                <MoreVertical size={18} />
+                                            </button>
 
-                            {/* Batches table */}
-                            <TableContainer
-                                component={Paper}
-                                elevation={0}
-                                className="border border-slate-100 overflow-hidden shadow-sm"
-                                sx={{ borderRadius: '24px' }}
-                            >
-                                {isLoadingBatches ? (
-                                    <div className="py-20 flex flex-col items-center gap-3">
-                                        <CircularProgress size={30} />
-                                        <Typography className="text-slate-400 text-sm">Loading batches…</Typography>
-                                    </div>
-                                ) : (
-                                    <Table>
-                                        <TableHead sx={{ bgcolor: '#f8fafc' }}>
-                                            <TableRow>
-                                                <TableCell sx={{ fontWeight: 700, color: '#64748b', border: 'none', px: 3, py: 2 }}>
-                                                    Batch Number
-                                                </TableCell>
-                                                <TableCell sx={{ fontWeight: 700, color: '#64748b', border: 'none', px: 3, py: 2, textAlign: 'center' }}>
-                                                    Available Qty
-                                                </TableCell>
-                                                <TableCell sx={{ fontWeight: 700, color: '#64748b', border: 'none', px: 3, py: 2, textAlign: 'center' }}>
-                                                    Created At
-                                                </TableCell>
-                                                <TableCell sx={{ fontWeight: 700, color: '#64748b', border: 'none', px: 3, py: 2, textAlign: 'right' }}>
-                                                    Actions
-                                                </TableCell>
-                                            </TableRow>
-                                        </TableHead>
-                                        <TableBody>
-                                            {filteredBatches.length === 0 ? (
-                                                <TableRow>
-                                                    <TableCell colSpan={4} sx={{ border: 'none', py: 10, textAlign: 'center' }}>
-                                                        <Inbox size={40} className="mx-auto text-slate-200 mb-2" />
-                                                        <Typography className="text-slate-400 font-medium text-sm">
-                                                            {searchTerm || stockFilter !== 'All'
-                                                                ? 'No batches match your filters.'
-                                                                : 'No batches found for this product.'}
-                                                        </Typography>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ) : (
-                                                filteredBatches.map((b) => {
-                                                    const qty = getBatchQty(b);
-                                                    return (
-                                                        <TableRow
-                                                            key={b.id}
-                                                            hover
-                                                            sx={{
-                                                                '&:last-child td': { borderBottom: 0 },
-                                                                '&:hover': { bgcolor: '#f8fafc' },
-                                                                transition: 'background 0.15s',
-                                                            }}
-                                                        >
-                                                            {/* Batch number */}
-                                                            <TableCell sx={{ border: 'none', px: 3, py: 2.5 }}>
-                                                                <span className="font-mono text-sm font-bold text-indigo-600">
-                                                                    {b.batchNumber || b.batch_number}
-                                                                </span>
-                                                            </TableCell>
+                                            {activeMenu === row.id && (
+                                                <div className={`absolute right-0 top-12 w-64 rounded-[24px] border shadow-2xl py-4 z-50 animate-in fade-in zoom-in-95 duration-200 ${isDarkMode ? 'bg-[#1a1b24] border-white/10' : 'bg-white border-slate-100'}`}>
+                                                    <p className={`px-6 py-2 text-[9px] font-black uppercase tracking-[0.2em] border-b mb-2 ${isDarkMode ? 'text-slate-600 border-white/5' : 'text-slate-400 border-slate-50'}`}>Batch Actions</p>
 
-                                                            {/* Qty */}
-                                                            <TableCell sx={{ border: 'none', px: 3, py: 2.5, textAlign: 'center' }}>
-                                                                <Chip
-                                                                    label={`${qty} Units`}
-                                                                    size="small"
-                                                                    sx={{
-                                                                        fontWeight: 700,
-                                                                        fontSize: '0.72rem',
-                                                                        height: 26,
-                                                                        bgcolor: qty > 0 ? '#f0fdf4' : '#fff1f2',
-                                                                        color: qty > 0 ? '#16a34a' : '#e11d48',
-                                                                    }}
-                                                                />
-                                                            </TableCell>
-
-                                                            {/* Date */}
-                                                            <TableCell sx={{ border: 'none', px: 3, py: 2.5, textAlign: 'center' }}>
-                                                                <CreatedAtText value={b.createdAt || b.created_at} className="justify-center flex-col !gap-0.5" />
-                                                            </TableCell>
-
-                                                            {/* Actions */}
-                                                            <TableCell sx={{ border: 'none', px: 3, py: 2.5, textAlign: 'right' }}>
-                                                                <IconButton
-                                                                    size="small"
-                                                                    onClick={(e) => handleMenuClick(e, b)}
-                                                                    sx={{ '&:hover': { bgcolor: '#f1f5f9' } }}
-                                                                >
-                                                                    <MoreVertical size={18} className="text-slate-400" />
-                                                                </IconButton>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    );
-                                                })
+                                                    <button
+                                                        onClick={() => { setIsViewModalOpen(true); setSelectedBatch(row); setActiveMenu(null); }}
+                                                        className={`w-full px-6 py-3.5 text-left flex items-center gap-3 transition-all font-black text-xs uppercase tracking-wider ${isDarkMode ? 'text-indigo-400 hover:bg-indigo-500/10' : 'text-indigo-600 hover:bg-indigo-50'}`}
+                                                    >
+                                                        <Eye size={16} /> View Details
+                                                    </button>
+                                                    <div className={`h-px my-2 mx-4 ${isDarkMode ? 'bg-white/5' : 'bg-slate-50'}`} />
+                                                    <button
+                                                        onClick={() => { setIsDeleteModalOpen(true); setSelectedBatch(row); setActiveMenu(null); }}
+                                                        className={`w-full px-6 py-3.5 text-left flex items-center gap-3 transition-all font-black text-xs uppercase tracking-wider ${isDarkMode ? 'text-rose-400 hover:bg-rose-500/10' : 'text-rose-600 hover:bg-rose-50'}`}
+                                                    >
+                                                        <Trash2 size={16} /> Delete Batch
+                                                    </button>
+                                                </div>
                                             )}
-                                        </TableBody>
-                                    </Table>
-                                )}
-                            </TableContainer>
-
-                            {/* Footer count */}
-                            {!isLoadingBatches && filteredBatches.length > 0 && (
-                                <p className="text-xs text-slate-400 text-right px-1">
-                                    Showing {filteredBatches.length} of {batches.length} batch{batches.length !== 1 ? 'es' : ''}
-                                </p>
-                            )}
+                                        </div>
+                                    )}
+                                />
+                            </div>
                         </div>
                     )}
-                </Box>
+                </div>
             </div>
 
-            {/* ── Add Stock Modal ─────────────────────────────────────────── */}
+            {/* Add Stock Modal */}
             <Modal
                 isOpen={isAddModalOpen}
-                onClose={() => { setIsAddModalOpen(false); reset({ productId: Number(selectedProductId), batchNumber: '', qty: '' }); }}
-                title="Add New Batch"
+                onClose={() => setIsAddModalOpen(false)}
+                title="Add New Stock Batch"
+                dark={isDarkMode}
+                onSubmit={handleSubmit(handleAddStockSubmit)}
                 footer={
-                    <div className="flex gap-4">
+                    <div className="flex gap-4 justify-end">
+                        <button type="button" onClick={() => setIsAddModalOpen(false)} className={`px-6 py-3 font-black text-[10px] uppercase tracking-widest transition-colors ${isDarkMode ? 'text-slate-500 hover:text-white' : 'text-slate-400 hover:text-slate-600'}`}>Cancel</button>
                         <button
-                            onClick={() => { setIsAddModalOpen(false); reset({ productId: Number(selectedProductId), batchNumber: '', qty: '' }); }}
-                            className="flex-1 bg-slate-100 text-slate-500 font-bold py-4 rounded-2xl hover:bg-slate-200 transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleSubmit(handleAddStockSubmit)}
+                            type="submit"
                             disabled={addStockMutation.isPending}
-                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-100 transition-all active:scale-95 disabled:opacity-50"
+                            className="bg-indigo-600 text-white px-10 py-4 rounded-[20px] font-black text-[10px] uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/20 active:scale-95 flex items-center gap-3"
                         >
-                            {addStockMutation.isPending ? (
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
-                            ) : 'Confirm Add Stock'}
+                            {addStockMutation.isPending ? <CircularProgress size={16} color="inherit" /> : <Plus size={18} />}
+                            <span>Confirm and Add Stock</span>
                         </button>
                     </div>
                 }
             >
-                <div className="space-y-6">
-                    {/* Selected product info */}
-                    <div className="bg-indigo-50/50 p-6 rounded-[1.5rem] border border-indigo-100 flex items-center gap-4">
-                        <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
-                            <Package size={22} />
+                <div className="space-y-8">
+                    <div className={`flex items-center gap-5 pb-6 border-b ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
+                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center border shrink-0 ${isDarkMode ? 'bg-white/5 border-white/10 text-indigo-400' : 'bg-slate-50 border-slate-100 text-indigo-600'}`}>
+                            <Package size={32} />
                         </div>
                         <div>
-                            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none mb-1">Target Product</p>
-                            <h4 className="text-lg font-black text-slate-800 tracking-tight leading-none mb-1">{selectedProduct?.name || '—'}</h4>
-                            <p className="text-xs font-mono font-bold text-slate-400 uppercase tracking-tighter">SKU: {selectedProduct?.sku || selectedProduct?.skuCode || '—'}</p>
+                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Target Product</p>
+                            <h3 className={`text-xl font-black italic uppercase tracking-tight leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{selectedProduct?.name}</h3>
                         </div>
                     </div>
 
-                    <Input
-                        label="Batch Number"
-                        {...register('batchNumber')}
-                        error={errors.batchNumber?.message}
-                        placeholder="e.g. BATCH-2024-001"
-                    />
-
-                    <Input
-                        label="Quantity to Add"
-                        type="number"
-                        {...register('qty')}
-                        error={errors.qty?.message}
-                        placeholder="e.g. 100"
-                    />
+                    <div className="space-y-6">
+                        <Input
+                            dark={isDarkMode}
+                            label="Batch Number"
+                            {...register('batchNumber')}
+                            error={errors.batchNumber?.message}
+                            placeholder="e.g. BATCH-001"
+                        />
+                        <Input
+                            dark={isDarkMode}
+                            label="Quantity"
+                            type="number"
+                            {...register('qty')}
+                            error={errors.qty?.message}
+                            placeholder="Enter quantity..."
+                        />
+                    </div>
                 </div>
             </Modal>
 
-            {/* ── Batch Action Dropdown ───────────────────────────────────── */}
-            <Menu
-                anchorEl={anchorEl}
-                open={Boolean(anchorEl)}
-                onClose={handleMenuClose}
-                PaperProps={{
-                    elevation: 0,
-                    sx: {
-                        borderRadius: '16px', minWidth: 170, mt: 1,
-                        border: '1px solid #f1f5f9',
-                        boxShadow: '0 8px 30px -8px rgba(0,0,0,0.08)',
-                    },
-                }}
-            >
-                <MenuItem
-                    onClick={() => { setIsViewModalOpen(true); handleMenuClose(); }}
-                    sx={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155', py: 1.5, px: 2.5, gap: 1.5, '&:hover': { bgcolor: '#f8fafc' } }}
-                >
-                    <Eye size={16} className="text-indigo-500" /> View Details
-                </MenuItem>
-                <Divider sx={{ my: 0.5, mx: 1 }} />
-                <MenuItem
-                    onClick={() => { setIsDeleteModalOpen(true); handleMenuClose(); }}
-                    sx={{ fontSize: '0.85rem', fontWeight: 600, color: '#e11d48', py: 1.5, px: 2.5, gap: 1.5, '&:hover': { bgcolor: '#fff1f2' } }}
-                >
-                    <Trash2 size={16} /> Delete Batch
-                </MenuItem>
-            </Menu>
-
-            {/* ── Batch Detail Modal ──────────────────────────────────────── slice ── */}
+            {/* Batch Details Modal */}
             <Modal
                 isOpen={isViewModalOpen}
                 onClose={() => setIsViewModalOpen(false)}
                 title="Batch Details"
+                dark={isDarkMode}
                 footer={
                     <button
                         onClick={() => setIsViewModalOpen(false)}
-                        className="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-black transition-colors"
+                        className={`w-full border font-black py-4 rounded-[24px] transition-all text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-white/5 border-white/10 text-white hover:bg-white/[0.08]' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
                     >
-                        Close Portal
+                        Close Details
                     </button>
                 }
             >
-                <div className="space-y-6">
-                    <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                        <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-slate-400">
-                            <Info size={18} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">System Identifier</p>
-                            <p className="text-sm font-mono font-bold text-slate-700">ID_REF::{selectedBatch?.id}</p>
+                <div className="space-y-8 py-4">
+                    <div className="flex justify-center">
+                        <div className={`w-20 h-20 rounded-[32px] flex items-center justify-center border ${isDarkMode ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>
+                            <Database size={40} />
                         </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Resource Status</p>
-                            {getBatchQty(selectedBatch) > 0 ? (
-                                <Badge variant="success" className="px-4 py-1.5 shadow-sm shadow-emerald-50 border-emerald-100 font-black">ACTIVE STOCK</Badge>
-                            ) : (
-                                <Badge variant="danger" className="px-4 py-1.5 shadow-sm shadow-rose-50 border-rose-100 font-black">DEPLETED</Badge>
-                            )}
+                        <div className={`p-6 border rounded-3xl ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className={`text-[9px] font-black uppercase tracking-widest mb-2 text-center ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Batch Number</p>
+                            <p className={`text-sm font-black text-center uppercase font-mono ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{selectedBatch?.batchNumber || 'N/A'}</p>
                         </div>
-                        <div className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Batch Reference</p>
-                            <p className="text-base font-black text-slate-800 tracking-tight">#{selectedBatch?.batchNumber || selectedBatch?.batch_number || '—'}</p>
-                        </div>
-                        <div className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Available Quantity</p>
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-2xl font-black text-slate-900">{getBatchQty(selectedBatch)}</span>
-                                <span className="text-xs font-bold text-slate-400 uppercase">Units</span>
+                        <div className={`p-6 border rounded-3xl ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className={`text-[9px] font-black uppercase tracking-widest mb-2 text-center ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Status</p>
+                            <div className="flex justify-center">
+                                <Badge variant={getBatchQty(selectedBatch) > 0 ? 'success' : 'danger'} dark={isDarkMode}>
+                                    {getBatchQty(selectedBatch) > 0 ? 'IN STOCK' : 'DEPLETED'}
+                                </Badge>
                             </div>
                         </div>
-                        <div className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Ingestion Timestamp</p>
-                            <CreatedAtText value={selectedBatch?.createdAt || selectedBatch?.created_at} className="flex-col !items-start !gap-0.5" />
+                        <div className={`p-6 border rounded-3xl ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className={`text-[9px] font-black uppercase tracking-widest mb-2 text-center ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Quantity</p>
+                            <p className={`text-2xl font-black italic tracking-tighter text-center ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getBatchQty(selectedBatch)} <span className="text-[10px] not-italic text-slate-600 ml-1 font-bold">UNITS</span></p>
+                        </div>
+                        <div className={`p-6 border rounded-3xl text-center ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className={`text-[9px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Created Date</p>
+                            <CreatedAtText value={selectedBatch?.createdAt} className="flex-col !items-center !gap-0.5" />
                         </div>
                     </div>
                 </div>
             </Modal>
 
-            {/* Delete Confirmation Modal */}
+            {/* Delete Modal */}
             <Modal
                 isOpen={isDeleteModalOpen}
-                onClose={() => { if (!deleteBatchMutation.isPending) setIsDeleteModalOpen(false); }}
-                title="Delete Stock Batch?"
+                onClose={() => setIsDeleteModalOpen(false)}
+                title="Delete Batch Record"
+                dark={isDarkMode}
+                onSubmit={handleDelete}
                 footer={
                     <div className="flex flex-col gap-3 w-full">
                         <button
-                            onClick={handleDelete}
+                            type="submit"
                             disabled={deleteBatchMutation.isPending}
-                            className="bg-rose-600 hover:bg-rose-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-rose-100 transition-all active:scale-95 disabled:opacity-50"
+                            className="bg-rose-600 text-white py-5 rounded-[24px] font-black text-xs uppercase tracking-widest hover:bg-rose-500 transition-all shadow-xl shadow-rose-600/20 active:scale-95"
                         >
-                            {deleteBatchMutation.isPending ? (
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
-                            ) : 'Yes, Remove Batch'}
+                            {deleteBatchMutation.isPending ? <CircularProgress size={16} color="inherit" /> : 'Confirm Delete'}
                         </button>
                         <button
+                            type="button"
                             onClick={() => setIsDeleteModalOpen(false)}
-                            disabled={deleteBatchMutation.isPending}
-                            className="text-slate-500 font-bold py-4 rounded-2xl hover:bg-slate-50 transition-colors"
+                            className={`font-black text-[10px] uppercase tracking-widest py-3 transition-colors ${isDarkMode ? 'text-slate-500 hover:text-white' : 'text-slate-400 hover:text-slate-600'}`}
                         >
                             Cancel
                         </button>
                     </div>
                 }
             >
-                <div className="space-y-4 py-4">
-                    <p className="text-slate-600 text-center leading-relaxed">
-                        Are you sure you want to remove batch{' '}
-                        <strong className="text-slate-800">
-                            {selectedBatch?.batchNumber || selectedBatch?.batch_number}
-                        </strong>
-                        ?
-                    </p>
-                    <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-2xl border border-amber-100">
-                        <AlertCircle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
-                        <p className="text-xs text-amber-800 leading-relaxed">
-                            Batches can only be deleted if they have{' '}
-                            <strong>zero available stock</strong>. The server will reject the request otherwise.
-                        </p>
+                <div className="text-center py-6 space-y-6">
+                    <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto border-2 relative ${isDarkMode ? 'bg-rose-500/10 border-rose-500/20' : 'bg-rose-50 border-rose-100'}`}>
+                        <ShieldAlert size={40} className="text-rose-500" />
+                        <div className={`absolute inset-0 blur-2xl opacity-10 ${isDarkMode ? 'bg-rose-500' : 'bg-rose-200'}`} />
+                    </div>
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <p className={`font-black uppercase italic text-xl tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Delete this batch?</p>
+                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] max-w-xs mx-auto leading-relaxed ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                Batch number <span className="text-rose-400 font-black">{selectedBatch?.batchNumber}</span> will be permanently deleted.
+                            </p>
+                        </div>
+                        <div className={`border rounded-2xl p-4 flex items-start gap-3 ${isDarkMode ? 'bg-amber-500/5 border-amber-500/10' : 'bg-amber-50 border-amber-100'}`}>
+                            <AlertCircle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+                            <p className={`text-[10px] font-bold uppercase tracking-wide text-left leading-relaxed ${isDarkMode ? 'text-amber-500/80' : 'text-amber-600'}`}>
+                                Note: Only empty batches can be deleted.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </Modal>

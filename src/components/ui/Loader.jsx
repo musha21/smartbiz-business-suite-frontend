@@ -1,24 +1,24 @@
 import React from 'react';
 
-const Loader = ({ size = 'md', fullPage = false, text = '' }) => {
+const Loader = ({ size = 'md', fullPage = false, text = '', dark = false }) => {
     const sizes = {
-        sm: 'w-5 h-5 border-2',
-        md: 'w-8 h-8 border-3',
-        lg: 'w-12 h-12 border-4',
+        sm: 'w-6 h-6 border-2',
+        md: 'w-10 h-10 border-[3px]',
+        lg: 'w-16 h-16 border-4',
     };
 
     const spinner = (
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-5">
             <div
-                className={`${sizes[size]} border-indigo-200 border-t-indigo-600 rounded-full animate-spin`}
+                className={`${sizes[size]} ${dark ? 'border-white/5 border-t-indigo-500' : 'border-indigo-100 border-t-indigo-600'} rounded-full animate-spin`}
             />
-            {text && <p className="text-sm font-semibold text-slate-500">{text}</p>}
+            {text && <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${dark ? 'text-slate-600' : 'text-slate-500'}`}>{text}</p>}
         </div>
     );
 
     if (fullPage) {
         return (
-            <div className="flex items-center justify-center min-h-[400px]">
+            <div className={`flex items-center justify-center min-h-[500px] w-full ${dark ? 'bg-[#0c0d10]' : ''}`}>
                 {spinner}
             </div>
         );

@@ -2,25 +2,24 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-
+import { useTheme } from '../../../context/ThemeContext';
 const MainLayout = () => {
+    const { isDarkMode } = useTheme();
+
     return (
-        <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
+        <div className={`flex min-h-screen font-sans ${isDarkMode ? 'bg-[#0c0d10] text-[#e2e8f0]' : 'bg-slate-50 text-slate-900'}`}>
             <Sidebar />
-            <div className="flex-1 flex flex-col h-screen overflow-hidden">
+
+            <div className="flex-1 flex flex-col">
                 <Navbar />
-                <main className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-                    <div className="w-full mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <main className={`flex-1 p-8 ${isDarkMode ? 'bg-[#0c0d10]' : 'bg-slate-50'}`}>
+                    <div className="w-full mx-auto">
                         <Outlet />
                     </div>
                 </main>
-                <footer className="h-14 bg-white border-t border-slate-200 flex items-center justify-center text-xs text-slate-400 font-medium">
-                    &copy; {new Date().getFullYear()} SmartBiz SaaS Platform. All rights reserved.
-                </footer>
+
+                
             </div>
-            <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
         </div>
     );
 };

@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../api/auth.service';
-import { toast } from 'react-toastify';
 import {
     Mail,
     Lock,
@@ -37,18 +36,20 @@ const LoginPage = () => {
         setLoading(true);
         try {
             const response = await authService.login(data);
-            authLogin(response);
-            toast.success(response?.message || 'Access granted. Initializing session.');
+            const { hasProfile } = await authLogin(response);
 
-            const role = response.role || response.user?.role;
-            if (role === 'ADMIN') {
+            const rawRole = response.role || response.user?.role;
+            const normalizedRole = rawRole === 'USER' ? 'OWNER' : rawRole;
+
+            if (normalizedRole === 'ADMIN') {
                 navigate('/admin/dashboard');
+            } else if (normalizedRole === 'OWNER' && !hasProfile) {
+                navigate('/setup-profile');
             } else {
                 navigate('/dashboard');
             }
         } catch (error) {
-            const errorMessage = error.response?.data?.message || 'Authentication failure. Verify credentials.';
-            toast.error(errorMessage);
+            // Error Handled Globally
         } finally {
             setLoading(false);
         }

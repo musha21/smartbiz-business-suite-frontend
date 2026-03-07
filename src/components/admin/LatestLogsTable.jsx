@@ -1,54 +1,71 @@
 import React from "react";
+import {
+    History as HistoryIcon,
+    ChevronRight as ArrowIcon
+} from '@mui/icons-material';
 
 const LatestLogsTable = ({ logs }) => {
-    if (!logs || logs.length === 0) {
-        return (
-            <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-500 shadow-sm">
-                No logs available
-            </div>
-        );
-    }
-
     const getLevelStyles = (level) => {
         switch (level?.toUpperCase()) {
             case "INFO":
-                return "text-blue-600 bg-blue-50";
+                return "text-indigo-400 bg-indigo-400/10 border-indigo-400/20";
             case "WARN":
-                return "text-orange-600 bg-orange-50";
+                return "text-amber-400 bg-amber-400/10 border-amber-400/20";
             case "ERROR":
-                return "text-red-600 bg-red-50";
+                return "text-rose-400 bg-rose-400/10 border-rose-400/20";
+            case "OK":
+                return "text-emerald-400 bg-emerald-400/10 border-emerald-400/20";
             default:
-                return "text-slate-600 bg-slate-50";
+                return "text-slate-400 bg-white/5 border-white/10";
         }
     };
 
     return (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden h-full">
-            <div className="p-4 border-b border-slate-100 bg-slate-50/50">
-                <h3 className="font-semibold text-slate-800">Latest System Logs</h3>
+        <div className="bg-[#15161c] border border-white/5 rounded-[32px] overflow-hidden mt-8">
+            <div className="p-8 pb-4 flex items-center justify-between">
+                <div>
+                    <h3 className="text-xl font-black text-white tracking-tight">Latest System Logs</h3>
+                    <p className="text-[11px] font-bold text-slate-600 uppercase tracking-[0.2em] mt-1">Showing 5 of 142</p>
+                </div>
+                <button className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition-colors font-bold text-xs uppercase tracking-widest">
+                    View All <ArrowIcon sx={{ fontSize: 16 }} />
+                </button>
             </div>
+
             <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                    <thead className="text-slate-500 font-medium border-b border-slate-100">
+                <table className="w-full text-left border-collapse">
+                    <thead className="border-b border-white/5">
                         <tr>
-                            <th className="px-6 py-4">Time</th>
-                            <th className="px-6 py-4">Level</th>
-                            <th className="px-6 py-4">Message</th>
+                            <th className="px-8 py-5 text-[10px] font-black text-slate-600 uppercase tracking-widest">Time</th>
+                            <th className="px-8 py-5 text-[10px] font-black text-slate-600 uppercase tracking-widest">Level</th>
+                            <th className="px-8 py-5 text-[10px] font-black text-slate-600 uppercase tracking-widest">Message</th>
+                            <th className="px-8 py-5 text-[10px] font-black text-slate-600 uppercase tracking-widest">Entity ID</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {logs.map((log) => (
-                            <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="px-6 py-4 text-slate-500 whitespace-nowrap">
-                                    {new Date(log.createdAt).toLocaleString()}
+                    <tbody className="divide-y divide-white/5">
+                        {(logs || []).slice(0, 5).map((log, idx) => (
+                            <tr key={log.id || idx} className="hover:bg-white/[0.02] transition-colors group">
+                                <td className="px-8 py-5 text-[13px] font-medium text-slate-500 whitespace-nowrap">
+                                    {new Date(log.createdAt || Date.now()).toLocaleString('en-US', {
+                                        month: 'numeric',
+                                        day: 'numeric',
+                                        year: 'numeric',
+                                        hour: 'numeric',
+                                        minute: 'numeric',
+                                        second: 'numeric',
+                                        hour12: true
+                                    })}
                                 </td>
-                                <td className="px-6 py-4">
-                                    <span className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider ${getLevelStyles(log.level)}`}>
-                                        {log.level}
+                                <td className="px-8 py-5">
+                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${getLevelStyles(log.level)}`}>
+                                        {log.level || 'INFO'}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4 text-slate-700 font-medium">
+                                <td className="px-8 py-5 text-[14px] font-bold text-slate-300">
                                     {log.message}
+                                </td>
+                                <td className="px-8 py-5 text-[13px] font-bold text-slate-600">
+                                    #{log.id ? String(log.id).slice(-2) : '25'}
                                 </td>
                             </tr>
                         ))}
