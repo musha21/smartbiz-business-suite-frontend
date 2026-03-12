@@ -127,6 +127,8 @@ const AnalyticsDashboard = () => {
         queryKey: ['subscriptionUsage'],
         queryFn: subscriptionService.getUsageCounters,
         enabled: !!user,
+        refetchInterval: 5000,
+        refetchOnWindowFocus: true,
     });
 
     // Removed redundant myProfile query as profile is now in AuthContext
@@ -399,23 +401,31 @@ const AnalyticsDashboard = () => {
 
     // ─── Derived ────────────────────────────────────
     const aiCredits = useMemo(() => {
-        const data = usageData?.data || usageData || {};
-        const counters = Array.isArray(data) ? data : [];
+        let data = usageData?.data || usageData || {};
 
-        const limitRecord = counters.find(u =>
-            u.limitKey === 'AI_CREDITS' ||
-            u.limitKey === 'AI_USED'
-        );
-
-        if (limitRecord) {
-            return {
-                used: Number(limitRecord.used ?? limitRecord.currentUsage ?? 0),
-                total: Number(limitRecord.limitValue ?? limitRecord.total ?? 100)
-            };
+        // 1. Handle nested usage array if present
+        if (data && typeof data === 'object' && Array.isArray(data.usage)) {
+            data = data.usage;
         }
 
-        const usedVal = data.aiUsed ?? data.AI_USED ?? data.aiCreditsUsed;
-        const totalVal = data.aiLimit ?? data.AI_LIMIT ?? data.aiCreditsTotal ?? data.limitValue ?? data.total ?? data.limit;
+        // 2. Handle Array structure
+        if (Array.isArray(data)) {
+            const record = data.find(u =>
+                u.limitKey?.includes('AI') ||
+                u.key?.includes('AI') ||
+                u.name?.toLowerCase().includes('ai')
+            );
+            if (record) {
+                return {
+                    used: Number(record.used ?? record.currentUsage ?? record.current ?? 0),
+                    total: Number(record.limitValue ?? record.limit ?? record.total ?? 100)
+                };
+            }
+        }
+
+        // 3. Handle Flat Object structure
+        const usedVal = data.aiUsed ?? data.AI_USED ?? data.aiCreditsUsed ?? data.aiCredits;
+        const totalVal = data.aiLimit ?? data.AI_LIMIT ?? data.aiCreditsTotal ?? data.aiCreditsLimit ?? data.total ?? data.limit;
 
         if (usedVal !== undefined) {
             return {
@@ -424,7 +434,7 @@ const AnalyticsDashboard = () => {
             };
         }
 
-        return { used: 0, total: 0 };
+        return { used: 0, total: 100 };
     }, [usageData]);
 
     const formatKey = (key) => key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());

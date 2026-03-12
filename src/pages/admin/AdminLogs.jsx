@@ -2,7 +2,7 @@ import React from 'react';
 import {
     Activity,
     Search,
-    Filter,
+    RefreshCw,
     Shield,
     Database,
     Zap,
@@ -29,10 +29,30 @@ import Badge from '../../components/ui/Badge';
 import Input from '../../components/ui/Input';
 
 const AdminLogs = () => {
-    const { data: logs, isLoading, error } = useQuery({
+    const [searchTerm, setSearchTerm] = React.useState('');
+    const { data: logs, isLoading, error, refetch, isFetching } = useQuery({
         queryKey: ['admin-logs'],
         queryFn: () => logService.getSystemLogs(),
     });
+
+    const filteredLogs = React.useMemo(() => {
+        if (!Array.isArray(logs)) return [];
+        return logs.filter(log => 
+            (log.message || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (log.level || '').toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [logs, searchTerm]);
+
+    const totalEvents = filteredLogs.length;
+    const errorCount = filteredLogs.filter(l => l.level === 'ERROR').length;
+    const infoCount = totalEvents - errorCount;
+
+    const metrics = [
+        { label: 'Total Events', count: totalEvents, color: 'indigo', icon: <Activity size={22} />, sub: 'Recorded entries' },
+        { label: 'System Errors', count: errorCount, color: 'rose', icon: <Shield size={22} />, sub: 'Action required' },
+        { label: 'Info Logs', count: infoCount, color: 'emerald', icon: <Zap size={22} />, sub: 'Normal operations' },
+        { label: 'System Health', count: errorCount === 0 && totalEvents > 0 ? '100%' : totalEvents === 0 ? 'Pending' : 'Stable', color: 'sky', icon: <Database size={22} />, sub: 'Online status' },
+    ];
 
     if (isLoading) {
         return (
@@ -46,18 +66,11 @@ const AdminLogs = () => {
         return (
             <div className="p-8">
                 <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-[2rem] px-8 py-6 font-black uppercase tracking-widest text-xs text-center shadow-2xl">
-                    Sync Error: Failed to load system forensic logs.
+                    Sync Error: Failed to load system activity logs.
                 </div>
             </div>
         );
     }
-
-    const metrics = [
-        { label: 'Security Firewall', count: '148', color: 'rose', icon: <Shield size={22} />, trend: '+12%', sub: 'Active blocks' },
-        { label: 'AI Infrastructure', count: '1,240', color: 'indigo', icon: <Zap size={22} />, trend: '+5.4%', sub: 'Total Invocations' },
-        { label: 'DB Query Engine', count: '45.2', color: 'emerald', icon: <Database size={22} />, trend: 'Healthy', sub: 'Ops per second' },
-        { label: 'System Kernel', count: '100%', color: 'sky', icon: <Activity size={22} />, trend: 'Stable', sub: 'Uptime latency' },
-    ];
 
     return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
@@ -65,18 +78,17 @@ const AdminLogs = () => {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-white/5 relative">
                 <div className="space-y-2">
                     <h1 className="text-5xl font-black text-white tracking-tighter italic uppercase leading-none">
-                        Audit Ecosystem
+                        System Activity
                     </h1>
-                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">Real-time system activity monitoring and forensic protocols</p>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">Real-time monitoring of all backend operations and events</p>
                 </div>
                 <div className="flex gap-4">
-                    <button className="flex items-center gap-2.5 bg-white/5 text-slate-400 px-6 py-3.5 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:text-white transition-all border border-white/5 group">
-                        <Download size={18} className="group-hover:-translate-y-1 transition-transform" />
-                        <span>Export Logs</span>
-                    </button>
-                    <button className="flex items-center gap-2.5 bg-indigo-600 text-white px-8 py-3.5 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20 active:scale-95">
-                        <Activity size={18} className="animate-pulse" />
-                        <span>Live Stream</span>
+                    <button
+                        onClick={() => refetch()}
+                        className="flex items-center gap-2.5 bg-white/5 text-slate-400 px-8 py-3.5 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:text-white transition-all border border-white/5 group"
+                    >
+                        <RefreshCw size={18} className={isFetching ? 'animate-spin' : ''} />
+                        <span>Refresh Feed</span>
                     </button>
                 </div>
             </div>
@@ -89,54 +101,43 @@ const AdminLogs = () => {
                             {stat.icon}
                         </div>
                         <div className="space-y-1">
-                            <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{stat.label}</p>
+                            <p className="text-[10px] font-black text-slate-200 uppercase tracking-widest">{stat.label}</p>
                             <div className="flex items-baseline gap-3">
                                 <h3 className="text-3xl font-black text-white">{stat.count}</h3>
-                                <span className={`text-[10px] font-black uppercase ${stat.color === 'emerald' || stat.color === 'sky' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                    {stat.trend}
-                                </span>
                             </div>
-                            <p className="text-[10px] text-slate-700 font-bold uppercase tracking-widest">{stat.sub}</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{stat.sub}</p>
                         </div>
-                        {/* Glow effect */}
                         <div className={`absolute -right-8 -bottom-8 w-32 h-32 bg-${stat.color}-500/5 rounded-full blur-3xl group-hover:bg-${stat.color}-500/10 transition-all`} />
                     </div>
                 ))}
             </div>
 
-            {/* Search & Filters */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                <div className="lg:col-span-8">
-                    <Input
-                        dark
-                        icon={Search}
-                        placeholder="Filter by event, user, IP address, or kernel message..."
-                    />
-                </div>
-                <div className="lg:col-span-4">
-                    <button className="w-full h-14 flex items-center justify-center gap-3 bg-[#15161c] border border-white/5 rounded-[20px] text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-white hover:bg-[#1a1b24] transition-all">
-                        <Filter size={18} />
-                        Advanced Forensic Filters
-                    </button>
-                </div>
+            {/* Search */}
+            <div className="relative group">
+                <Search size={18} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                <input
+                    type="text"
+                    placeholder="Search logs by message or level..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full h-16 bg-[#15161c] border border-white/5 rounded-[24px] pl-16 pr-8 text-sm font-bold text-white focus:outline-none focus:border-indigo-500/50 transition-all"
+                />
             </div>
 
-            {/* Forensic Table */}
+            {/* Activity Table */}
             <div className="bg-[#15161c] border border-white/5 rounded-[40px] overflow-hidden shadow-2xl">
                 <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'transparent', borderRadius: 0 }}>
                     <Table>
                         <TableHead>
                             <TableRow sx={{ '& th': { borderBottom: '1px solid rgba(255,255,255,0.05)', py: 4 } }}>
-                                <TableCell className="px-10 font-black text-[10px] text-slate-600 uppercase tracking-[0.2em]">Protocol</TableCell>
-                                <TableCell className="px-10 font-black text-[10px] text-slate-600 uppercase tracking-[0.2em]">Forensic Detail</TableCell>
-                                <TableCell className="px-10 font-black text-[10px] text-slate-600 uppercase tracking-[0.2em]">Identity</TableCell>
-                                <TableCell className="px-10 font-black text-[10px] text-slate-600 uppercase tracking-[0.2em]">Origin (IP)</TableCell>
-                                <TableCell className="px-10 font-black text-[10px] text-slate-600 uppercase tracking-[0.2em]">Timestamp</TableCell>
-                                <TableCell className="px-10 font-black text-[10px] text-slate-600 uppercase tracking-[0.2em] text-right">State</TableCell>
+                                <TableCell sx={{ color: '#94a3b8' }} className="px-10 font-black text-[10px] uppercase tracking-[0.2em]">ID</TableCell>
+                                <TableCell sx={{ color: '#94a3b8' }} className="px-10 font-black text-[10px] uppercase tracking-[0.2em]">Timestamp</TableCell>
+                                <TableCell sx={{ color: '#94a3b8' }} className="px-10 font-black text-[10px] uppercase tracking-[0.2em]">Status Level</TableCell>
+                                <TableCell sx={{ color: '#94a3b8' }} className="px-10 font-black text-[10px] uppercase tracking-[0.2em]">System Message</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {logs?.map((log) => (
+                            {filteredLogs.map((log) => (
                                 <TableRow
                                     key={log.id}
                                     sx={{
@@ -147,80 +148,47 @@ const AdminLogs = () => {
                                     className="group transition-colors"
                                 >
                                     <TableCell className="px-10">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-2 h-2 rounded-full shadow-[0_0_8px] ${log.type === 'Security' ? 'bg-rose-500 shadow-rose-500/50' :
-                                                    log.type === 'AI' ? 'bg-indigo-500 shadow-indigo-500/50' :
-                                                        log.type === 'Alert' ? 'bg-amber-500 shadow-amber-500/50' :
-                                                            'bg-slate-500 shadow-slate-500/50'
-                                                }`} />
-                                            <span className="text-[10px] font-black text-white uppercase tracking-widest">{log.type}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="px-10 font-bold text-slate-400 text-sm italic">
-                                        {log.event}
-                                    </TableCell>
-                                    <TableCell className="px-10">
-                                        <div className="flex items-center gap-4">
-                                            <Avatar
-                                                sx={{
-                                                    width: 32,
-                                                    height: 32,
-                                                    fontSize: '0.7rem',
-                                                    bgcolor: 'rgba(255,255,255,0.05)',
-                                                    color: '#94a3b8',
-                                                    fontWeight: '900',
-                                                    border: '1px solid rgba(255,255,255,0.05)'
-                                                }}
-                                            >
-                                                {(log.user || 'S')[0].toUpperCase()}
-                                            </Avatar>
-                                            <span className="text-xs font-black text-slate-500 uppercase tracking-wider">{log.user || 'System Kernel'}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="px-10">
-                                        <span className="font-mono text-[10px] text-indigo-400/70 font-black tracking-widest">{log.ip || '0.0.0.0'}</span>
+                                        <span className="text-[11px] font-mono text-slate-300 font-bold">#{log.id}</span>
                                     </TableCell>
                                     <TableCell className="px-10">
                                         <div className="flex flex-col">
-                                            <span className="text-white font-black text-[10px] uppercase tracking-widest">{new Date(log.timestamp || Date.now()).toLocaleTimeString()}</span>
-                                            <span className="text-slate-700 text-[9px] font-bold uppercase tracking-widest">{new Date(log.timestamp || Date.now()).toLocaleDateString()}</span>
+                                            <span className="text-white font-black text-[10px] uppercase tracking-widest">
+                                                {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                            </span>
+                                            <span className="text-slate-400 text-[9px] font-bold uppercase tracking-widest">
+                                                {new Date(log.createdAt).toLocaleDateString()}
+                                            </span>
                                         </div>
                                     </TableCell>
-                                    <TableCell className="px-10 text-right">
-                                        <Badge variant={log.status === 'Success' ? 'success' : 'warning'} dark>
-                                            {log.status || 'Verified'}
-                                        </Badge>
+                                    <TableCell className="px-10">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-2 h-2 rounded-full shadow-[0_0_8px] ${log.level === 'ERROR' ? 'bg-rose-500 shadow-rose-500/50' :
+                                                    log.level === 'WARNING' ? 'bg-amber-500 shadow-amber-500/50' :
+                                                        'bg-emerald-500 shadow-emerald-500/50'
+                                                }`} />
+                                            <span className={`text-[10px] font-black uppercase tracking-widest ${log.level === 'ERROR' ? 'text-rose-500' :
+                                                    log.level === 'WARNING' ? 'text-amber-500' :
+                                                        'text-emerald-500'
+                                                }`}>
+                                                {log.level || 'INFO'}
+                                            </span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell sx={{ color: '#ffffff' }} className="px-10 font-bold text-sm italic py-6">
+                                        {log.message}
                                     </TableCell>
                                 </TableRow>
                             ))}
+                            {filteredLogs.length === 0 && (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="text-center py-20">
+                                        <p className="text-slate-400 font-black uppercase tracking-widest text-xs">No activity logs found matching your criteria</p>
+                                    </TableCell>
+                                </TableRow>
+                            )}
                         </TableBody>
                     </Table>
                 </TableContainer>
-            </div>
-
-            {/* Terminal View Component (Aesthetic addition) */}
-            <div className="bg-black border border-white/5 rounded-[32px] p-8 shadow-2xl relative overflow-hidden group">
-                <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                        <Terminal size={18} className="text-indigo-500" />
-                        <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">Real-time Kernel Stream</h3>
-                    </div>
-                    <div className="flex gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-slate-800" />
-                        <div className="w-2 h-2 rounded-full bg-slate-800" />
-                        <div className="w-2 h-2 rounded-full bg-slate-800" />
-                    </div>
-                </div>
-                <div className="space-y-3 font-mono text-[10px] leading-relaxed">
-                    <p className="text-emerald-500/80"><span className="text-slate-600">[02:14:55]</span> INF: Secure tunnel established to node-042x</p>
-                    <p className="text-indigo-500/80"><span className="text-slate-600">[02:15:02]</span> AI: Vector processing complete for invoice-9912. Latency: 12ms</p>
-                    <p className="text-rose-500/80"><span className="text-slate-600">[02:15:10]</span> SEC: Unauthorized handshake attempt from 192.168.1.1. Blocked.</p>
-                    <div className="flex gap-2">
-                        <span className="text-indigo-500 font-bold">$</span>
-                        <div className="w-2 h-4 bg-indigo-500 animate-pulse" />
-                    </div>
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-40 pointer-events-none" />
             </div>
         </div>
     );

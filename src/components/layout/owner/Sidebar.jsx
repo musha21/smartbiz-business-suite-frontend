@@ -12,7 +12,8 @@ import {
     Crown,
     ChevronRight,
     LogOut,
-    Sparkles
+    Sparkles,
+    Activity
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -47,6 +48,7 @@ const Sidebar = () => {
             title: 'Intelligence',
             items: [
                 { name: 'AI Intelligence', path: '/intelligence', icon: Sparkles },
+                { name: 'Usage & Limits', path: '/usage', icon: Activity },
                 { name: 'Subscription', path: '/subscription', icon: Crown },
             ]
         }

@@ -1,17 +1,23 @@
-import React from "react";
+import { formatLKR } from "../../utils/formatters";
 import {
     TrendingUp,
     TrendingDown,
     Business as BusinessIcon,
     Groups as UsersIcon,
     ReceiptLong as InvoiceIcon,
-    BarChart as ChartIcon
+    BarChart as ChartIcon,
+    Payments as RevenueIcon,
+    ErrorOutline as WarningIcon,
+    PieChart as DistributionIcon
 } from '@mui/icons-material';
 
-const StatCard = ({ label, value, trend, trendValue, icon: Icon, color, subValue, subLabel, miniData }) => {
+const StatCard = ({ label, value, trend, trendValue, icon: Icon, color, subLabel, miniData }) => {
+    const isPositive = trend === 'up';
+    const trendColor = isPositive ? 'text-emerald-500' : 'text-rose-500';
+    const TrendIcon = isPositive ? TrendingUp : TrendingDown;
+
     return (
         <div className="bg-[#15161c] border border-white/5 p-6 rounded-[24px] group hover:bg-[#1a1b24] transition-all duration-300 relative overflow-hidden">
-            {/* Background Icon Glow */}
             <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full blur-[40px] opacity-20 group-hover:opacity-30 transition-opacity ${color.replace('text-', 'bg-')}`}></div>
 
             <div className="flex justify-between items-start mb-6 relative z-10">
@@ -29,21 +35,16 @@ const StatCard = ({ label, value, trend, trendValue, icon: Icon, color, subValue
                         {value}
                     </h3>
                     <div className="flex items-center gap-2">
-                        {trend === 'up' ? (
-                            <TrendingUp sx={{ fontSize: 16, color: '#10b981' }} />
-                        ) : (
-                            <TrendingDown sx={{ fontSize: 16, color: '#ef4444' }} />
-                        )}
-                        <span className={`text-[13px] font-bold ${trend === 'up' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                        <TrendIcon sx={{ fontSize: 16, color: isPositive ? '#10b981' : '#ef4444' }} />
+                        <span className={`text-[13px] font-bold ${trendColor}`}>
                             {trendValue}
                         </span>
                         <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">{subLabel}</span>
                     </div>
                 </div>
 
-                {/* Mini Bar Chart */}
                 <div className="flex items-end gap-1 px-2 h-10">
-                    {miniData.map((h, i) => (
+                    {(Array.isArray(miniData) ? miniData : []).map((h, i) => (
                         <div
                             key={i}
                             style={{ height: `${h}%` }}
@@ -80,66 +81,66 @@ const StatsCards = ({ stats }) => {
         {
             label: "Total Businesses",
             value: stats.totalBusinesses || 0,
-            trend: 'up',
-            trendValue: "+3",
+            trend: stats.totalBusinessesTrend >= 0 ? 'up' : 'down',
+            trendValue: `${stats.totalBusinessesTrend >= 0 ? '+' : ''}${stats.totalBusinessesTrend || 0}%`,
             subLabel: "vs last month",
             icon: ChartIcon,
             color: "text-indigo-500",
-            miniData: [30, 45, 35, 60, 75, 40, 90]
+            miniData: stats.history?.businesses || [30, 45, 35, 60, 75, 40, 90]
         },
         {
             label: "Active Businesses",
             value: stats.activeBusinesses || 0,
-            trend: 'down',
-            trendValue: "-2",
-            subLabel: "need attention",
+            trend: stats.activeBusinessesTrend >= 0 ? 'up' : 'down',
+            trendValue: `${stats.activeBusinessesTrend >= 0 ? '+' : ''}${stats.activeBusinessesTrend || 0}%`,
+            subLabel: "Current health",
             icon: BusinessIcon,
             color: "text-emerald-500",
-            miniData: [20, 30, 80, 50, 60, 40, 70]
+            miniData: stats.history?.active || [20, 30, 80, 50, 60, 40, 70]
         },
         {
             label: "Total Users",
             value: stats.totalUsers || 0,
-            trend: 'up',
-            trendValue: "+7",
-            subLabel: "new this week",
+            trend: stats.totalUsersTrend >= 0 ? 'up' : 'down',
+            trendValue: `${stats.totalUsersTrend >= 0 ? '+' : ''}${stats.totalUsersTrend || 0}%`,
+            subLabel: "Growth trend",
             icon: UsersIcon,
             color: "text-purple-500",
-            miniData: [40, 20, 60, 80, 30, 50, 70]
+            miniData: stats.history?.users || [40, 20, 60, 80, 30, 50, 70]
         },
         {
             label: "Invoices This Month",
             value: stats.invoicesThisMonth || 0,
-            trend: 'up',
-            trendValue: "+4",
-            subLabel: "vs last month",
+            trend: stats.invoicesTrend >= 0 ? 'up' : 'down',
+            trendValue: `${stats.invoicesTrend >= 0 ? '+' : ''}${stats.invoicesTrend || 0}%`,
+            subLabel: "Transactional volume",
             icon: InvoiceIcon,
             color: "text-amber-500",
-            miniData: [30, 40, 20, 50, 70, 40, 60]
+            miniData: stats.history?.invoices || [30, 40, 20, 50, 70, 40, 60]
         }
     ];
 
     const subCards = [
         {
             label: "Monthly Revenue",
-            value: "$12,400",
-            subText: "↑ 18% from last month",
-            icon: ChartIcon,
+            value: formatLKR(stats.paidRevenueThisMonth || 0),
+            subText: `${stats.revenueTrend >= 0 ? '↑' : '↓'} ${Math.abs(stats.revenueTrend || 0)}% from last month`,
+            icon: RevenueIcon,
             color: "text-indigo-500"
         },
         {
-            label: "Inactive Businesses",
-            value: "21",
-            subText: "Require re-activation",
-            icon: TrendingDown,
-            isWarning: true
+            label: "AI Usage Index",
+            value: stats.aiUsageCount || 0,
+            subText: `${stats.aiUsageTrend >= 0 ? '↑' : '↓'} ${Math.abs(stats.aiUsageTrend || 0)}% utilization`,
+            icon: ChartIcon,
+            color: "text-purple-500"
         },
         {
-            label: "System Uptime",
-            value: "99.8%",
-            subText: "Last 30 days",
-            icon: BusinessIcon,
-            color: "text-emerald-500"
+            label: "Expiring Businesses",
+            value: stats.expiringSoon || 0,
+            subText: "Require attention",
+            icon: WarningIcon,
+            isWarning: (stats.expiringSoon || 0) > 0
         }
     ];
 

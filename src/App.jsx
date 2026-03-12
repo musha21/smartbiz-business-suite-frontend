@@ -15,6 +15,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import Businesses from './pages/admin/Businesses';
 import AdminLogs from './pages/admin/AdminLogs';
 import AdminPlans from './pages/admin/AdminPlans';
+import AIAnalytics from './pages/admin/AIAnalytics';
 
 // Owner Pages
 import OwnerLayout from './components/layout/owner/MainLayout';
@@ -31,6 +32,7 @@ import InvoiceCreatePage from './pages/invoices/InvoiceCreatePage';
 import InvoiceDetailsPage from './pages/invoices/InvoiceDetailsPage';
 import ProfileSetup from './pages/owner/ProfileSetup';
 import ProfileEdit from './pages/owner/ProfileEdit';
+import UsageLimits from './pages/owner/UsageLimits';
 
 // ... (rest of imports)
 
@@ -60,6 +62,7 @@ const App = () => {
                   <Route path="/admin/plans" element={<AdminPlans />} />
                   <Route path="/admin/businesses" element={<Businesses />} />
                   <Route path="/admin/usage-logs" element={<AdminLogs />} />
+                  <Route path="/admin/ai-usage" element={<AIAnalytics />} />
                 </Route>
               </Route>
 
@@ -86,6 +89,7 @@ const App = () => {
                   <Route path="/invoices/:id" element={<InvoiceDetailsPage />} />
 
                   <Route path="/intelligence" element={<AnalyticsDashboard />} />
+                  <Route path="/usage" element={<UsageLimits />} />
                   <Route path="/settings" element={<Placeholder title="Settings" />} />
                 </Route>
               </Route>

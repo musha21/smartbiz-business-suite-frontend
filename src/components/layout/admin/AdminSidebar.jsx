@@ -7,7 +7,6 @@ import {
     History as HistoryIcon,
     Psychology as AIUsageIcon,
     Layers as PlansIcon,
-    Settings as SettingsIcon,
     CreditCard as CreditCardIcon
 } from '@mui/icons-material';
 import AssignSubscriptionModal from '../../../pages/admin/AssignSubscriptionModal';
@@ -21,7 +20,6 @@ const AdminSidebar = () => {
         { name: 'Businesses', path: '/admin/businesses', icon: <BusinessIcon sx={{ fontSize: 20 }} /> },
         { name: 'Usage Logs', path: '/admin/usage-logs', icon: <HistoryIcon sx={{ fontSize: 20 }} /> },
         { name: 'AI Analytics', path: '/admin/ai-usage', icon: <AIUsageIcon sx={{ fontSize: 20 }} /> },
-        { name: 'Settings', path: '/admin/settings', icon: <SettingsIcon sx={{ fontSize: 20 }} /> },
     ];
 
     return (
@@ -107,26 +105,6 @@ const AdminSidebar = () => {
                 </nav>
             </div>
 
-            <div className="px-6 mb-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-4 opacity-70">System</p>
-                <nav className="space-y-1">
-                    {menuItems.slice(5).map((item) => (
-                        <NavLink
-                            key={item.path}
-                            to={item.path}
-                            className={({ isActive }) => `
-                flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 group
-                ${isActive
-                                    ? 'bg-white/5 text-white'
-                                    : 'hover:text-white hover:bg-white/5'}
-              `}
-                        >
-                            <span className="opacity-70 group-hover:opacity-100 transition-opacity">{item.icon}</span>
-                            <span className="font-bold text-sm">{item.name}</span>
-                        </NavLink>
-                    ))}
-                </nav>
-            </div>
 
             {/* Bottom Actions */}
             <div className="mt-auto p-6 space-y-4">

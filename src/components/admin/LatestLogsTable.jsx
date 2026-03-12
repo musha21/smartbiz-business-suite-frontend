@@ -25,7 +25,9 @@ const LatestLogsTable = ({ logs }) => {
             <div className="p-8 pb-4 flex items-center justify-between">
                 <div>
                     <h3 className="text-xl font-black text-white tracking-tight">Latest System Logs</h3>
-                    <p className="text-[11px] font-bold text-slate-600 uppercase tracking-[0.2em] mt-1">Showing 5 of 142</p>
+                    <p className="text-[11px] font-bold text-slate-600 uppercase tracking-[0.2em] mt-1">
+                        Showing {Math.min(logs?.length || 0, 5)} of {logs?.length || 0}
+                    </p>
                 </div>
                 <button className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition-colors font-bold text-xs uppercase tracking-widest">
                     View All <ArrowIcon sx={{ fontSize: 16 }} />
@@ -43,7 +45,7 @@ const LatestLogsTable = ({ logs }) => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                        {(logs || []).slice(0, 5).map((log, idx) => (
+                        {(Array.isArray(logs) ? logs : []).slice(0, 5).map((log, idx) => (
                             <tr key={log.id || idx} className="hover:bg-white/[0.02] transition-colors group">
                                 <td className="px-8 py-5 text-[13px] font-medium text-slate-500 whitespace-nowrap">
                                     {new Date(log.createdAt || Date.now()).toLocaleString('en-US', {
